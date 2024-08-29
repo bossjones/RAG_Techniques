@@ -1,3 +1,4 @@
+import langchain
 from langchain.document_loaders import  PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_openai import OpenAIEmbeddings
@@ -94,7 +95,7 @@ def encode_from_string(content, chunk_size=1000, chunk_overlap=200):
         ValueError: If the input content is not valid.
         RuntimeError: If there is an error during the encoding process.
     """
-   
+
     if not isinstance(content, str) or not content.strip():
         raise ValueError("Content must be a non-empty string.")
 
@@ -148,13 +149,13 @@ def retrieve_context_per_question(question, chunks_query_retriever):
     # context = " ".join(doc.page_content for doc in docs)
     context = [doc.page_content for doc in docs]
 
-    
+
     return context
 
 class QuestionAnswerFromContext(BaseModel):
     """
     Model to generate an answer to a query based on a given context.
-    
+
     Attributes:
         answer_based_on_content (str): The generated answer based on the context.
     """
@@ -166,7 +167,7 @@ def create_question_answer_from_context_chain(llm):
     question_answer_from_context_llm = llm
 
     # Define the prompt template for chain-of-thought reasoning
-    question_answer_prompt_template = """ 
+    question_answer_prompt_template = """
     For the question below, provide a concise but suffice answer based ONLY on the provided context:
     {context}
     Question
@@ -280,31 +281,31 @@ def bm25_retrieval(bm25: BM25Okapi, cleaned_texts: List[str], query: str, k: int
 async def exponential_backoff(attempt):
     """
     Implements exponential backoff with a jitter.
-    
+
     Args:
         attempt: The current retry attempt number.
-        
+
     Waits for a period of time before retrying the operation.
     The wait time is calculated as (2^attempt) + a random fraction of a second.
     """
     # Calculate the wait time with exponential backoff and jitter
     wait_time = (2 ** attempt) + random.uniform(0, 1)
     print(f"Rate limit hit. Retrying in {wait_time:.2f} seconds...")
-    
+
     # Asynchronously sleep for the calculated wait time
     await asyncio.sleep(wait_time)
 
 async def retry_with_exponential_backoff(coroutine, max_retries=5):
     """
     Retries a coroutine using exponential backoff upon encountering a RateLimitError.
-    
+
     Args:
         coroutine: The coroutine to be executed.
         max_retries: The maximum number of retry attempts.
-        
+
     Returns:
         The result of the coroutine if successful.
-        
+
     Raises:
         The last encountered exception if all retry attempts fail.
     """
@@ -316,9 +317,9 @@ async def retry_with_exponential_backoff(coroutine, max_retries=5):
             # If the last attempt also fails, raise the exception
             if attempt == max_retries - 1:
                 raise e
-            
+
             # Wait for an exponential backoff period before retrying
             await exponential_backoff(attempt)
-    
+
     # If max retries are reached without success, raise an exception
     raise Exception("Max retries reached")
