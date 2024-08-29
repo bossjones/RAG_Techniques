@@ -19,7 +19,7 @@ services:
     networks:
       - net
     ports:
-      - 5432:5432
+      - 6432:5432
     volumes:
       # This script initialises the DB for integration tests
       - ./pgvector/scripts:/docker-entrypoint-initdb.d

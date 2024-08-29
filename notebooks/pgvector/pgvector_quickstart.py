@@ -11,7 +11,7 @@ from pgvector_service import PgvectorService
 import os
 import time
 
-# load_dotenv()
+
 import dotenv
 
 
