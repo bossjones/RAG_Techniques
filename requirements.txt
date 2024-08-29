@@ -199,3 +199,23 @@ yamllint>=1.35.1
 # pydocstringformatter>=0.7.3
 # pylint-to-ruff>=0.3.0
 # commitizen>=3.28.0
+better_exceptions
+pinecone-client[grpc]>=4.1.1
+pgvector
+chromadb==0.5.3
+
+langchain-google-genai>=1.0.6
+langchain-anthropic>=0.1.15
+langchain-chroma>=0.1.2
+langchainhub>=0.1.20
+langchain-groq>=0.1.6
+langchain-postgres>=0.0.9
+
+
+imageio>=2.34.2
+imutils>=0.5.4
+logging-tree>=1.10
+loguru>=0.7.2
+
+# NOTE: this is Psycopg 3
+psycopg[binary,pool]==3.2.1
