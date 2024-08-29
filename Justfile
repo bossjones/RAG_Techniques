@@ -227,3 +227,7 @@ brew-deps:
 
 db-create:
 	psql -d langchain -c 'CREATE EXTENSION vector'
+
+typecheck:
+	pyright -p pyproject.toml .
+	mypy  --config-file=pyproject.toml --html-report typingcov .

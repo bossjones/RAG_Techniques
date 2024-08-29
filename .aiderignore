@@ -338,3 +338,5 @@ ruff_config.toml
 notebooks/e2e_evals.ipynb
 tests/services/cassettes/.*
 src/goob_ai/data/chroma/vectorstorage/
+
+all_rag_techniques/.deepeval-cache.json

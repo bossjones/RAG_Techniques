@@ -1646,7 +1646,7 @@ reportUnusedImport = "none"
 reportMissingImports = "error"
 reportImportCycles = "error"
 reportUnusedVariable = "none"
-reportMissingTypeStubs = "warning"
+reportMissingTypeStubs = "none"
 # reportUnknownMemberType = "false" # ORIGINAL ONE
 # reportUnknownMemberType = "error"
 # -------------------------------------------------------------------------

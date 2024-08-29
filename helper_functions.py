@@ -6,9 +6,10 @@ import textwrap
 
 from typing import List
 
-import fitz
 import langchain
 import numpy as np
+import openai
+import pymupdf
 
 from langchain.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -234,11 +235,11 @@ def read_pdf_to_string(path):
     Returns:
         str: The concatenated text content of all pages in the PDF document.
 
-    The function uses the 'fitz' library (PyMuPDF) to open the PDF document, iterate over each page,
+    The function uses the 'pymupdf' library (PyMuPDF) to open the PDF document, iterate over each page,
     extract the text content from each page, and append it to a single string.
     """
     # Open the PDF document located at the specified path
-    doc = fitz.open(path)
+    doc = pymupdf.open(path)
     content = ""
     # Iterate over each page in the document
     for page_num in range(len(doc)):
@@ -313,7 +314,7 @@ async def retry_with_exponential_backoff(coroutine, max_retries=5):
         try:
             # Attempt to execute the coroutine
             return await coroutine
-        except RateLimitError as e:
+        except openai.RateLimitError as e:
             # If the last attempt also fails, raise the exception
             if attempt == max_retries - 1:
                 raise e
