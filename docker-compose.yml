@@ -1,0 +1,33 @@
+---
+x-default-logging:
+  driver: "json-file"
+  options:
+    max-size: "5m"
+    max-file: "2"
+    tag: "{{.Name}}"
+
+networks:
+  net:
+    driver: bridge
+services:
+# docker run --name pgvector-container -e POSTGRES_USER=langchain -e POSTGRES_PASSWORD=langchain -e POSTGRES_DB=langchain -p 6024:5432 -d pgvector/pgvector:pg16
+  db:
+    image: pgvector/pgvector:pg14
+    container_name: pgvector-container
+    restart: unless-stopped
+    # logging: *logging
+    networks:
+      - net
+    ports:
+      - 5432:5432
+    volumes:
+      # This script initialises the DB for integration tests
+      - ./pgvector/scripts:/docker-entrypoint-initdb.d
+      - db:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_PASSWORD=langchain
+      - POSTGRES_USER=langchain
+      - POSTGRES_DB=langchain
+
+volumes:
+  db:

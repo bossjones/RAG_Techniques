@@ -54,7 +54,7 @@
   "mypy-type-checker.args": [
       "--show-column-numbers",
       "--no-pretty",
-      // "--config-file=${workspaceFolder}/pyproject.toml"
+      "--config-file=${workspaceFolder}/pyproject.toml"
   ],
   "yaml.schemas": {
       "https://json.schemastore.org/pre-commit-config.json": ".pre-commit-config.yaml",
@@ -66,6 +66,9 @@
       "ruff"
   ],
   "ruff.importStrategy": "fromEnvironment",
+  "ruff.lint.args": [
+    "--config=pyproject.toml"
+  ],
   "ruff.interpreter": [
       "/Users/malcolm/.pyenv/versions/rag_techniques3/bin/python"
   ],

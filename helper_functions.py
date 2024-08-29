@@ -1,20 +1,22 @@
-import langchain
-from langchain.document_loaders import  PyPDFLoader
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_openai import OpenAIEmbeddings
-from langchain.vectorstores import FAISS
-from langchain_core.pydantic_v1 import BaseModel, Field
-from langchain import PromptTemplate
-import fitz
-from typing import List
-from rank_bm25 import BM25Okapi
+from __future__ import annotations
+
 import asyncio
 import random
 import textwrap
+
+from typing import List
+
+import fitz
+import langchain
 import numpy as np
 
-
-
+from langchain.document_loaders import PyPDFLoader
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain.vectorstores import FAISS
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder, PromptTemplate
+from langchain_core.pydantic_v1 import BaseModel, Field
+from langchain_openai import OpenAIEmbeddings
+from rank_bm25 import BM25Okapi
 
 
 def replace_t_with_space(list_of_documents):
@@ -29,7 +31,7 @@ def replace_t_with_space(list_of_documents):
     """
 
     for doc in list_of_documents:
-        doc.page_content = doc.page_content.replace('\t', ' ')  # Replace tabs with spaces
+        doc.page_content = doc.page_content.replace("\t", " ")  # Replace tabs with spaces
     return list_of_documents
 
 
@@ -45,8 +47,6 @@ def text_wrap(text, width=120):
         str: The wrapped text.
     """
     return textwrap.fill(text, width=width)
-
-
 
 
 def encode_pdf(path, chunk_size=1000, chunk_overlap=200):
@@ -78,6 +78,7 @@ def encode_pdf(path, chunk_size=1000, chunk_overlap=200):
     vectorstore = FAISS.from_documents(cleaned_texts, embeddings)
 
     return vectorstore
+
 
 def encode_from_string(content, chunk_size=1000, chunk_overlap=200):
     """
@@ -117,7 +118,7 @@ def encode_from_string(content, chunk_size=1000, chunk_overlap=200):
 
         # Assign metadata to each chunk
         for chunk in chunks:
-            chunk.metadata['relevance_score'] = 1.0
+            chunk.metadata["relevance_score"] = 1.0
 
         # Generate embeddings and create the vector store
         embeddings = OpenAIEmbeddings()
@@ -149,8 +150,8 @@ def retrieve_context_per_question(question, chunks_query_retriever):
     # context = " ".join(doc.page_content for doc in docs)
     context = [doc.page_content for doc in docs]
 
-
     return context
+
 
 class QuestionAnswerFromContext(BaseModel):
     """
@@ -159,10 +160,11 @@ class QuestionAnswerFromContext(BaseModel):
     Attributes:
         answer_based_on_content (str): The generated answer based on the context.
     """
+
     answer_based_on_content: str = Field(description="Generates an answer to a query based on a given context.")
 
-def create_question_answer_from_context_chain(llm):
 
+def create_question_answer_from_context_chain(llm):
     # Initialize the ChatOpenAI model with specific parameters
     question_answer_from_context_llm = llm
 
@@ -181,9 +183,11 @@ def create_question_answer_from_context_chain(llm):
     )
 
     # Create a chain by combining the prompt template and the language model
-    question_answer_from_context_cot_chain = question_answer_from_context_prompt | question_answer_from_context_llm.with_structured_output(QuestionAnswerFromContext)
+    question_answer_from_context_cot_chain = (
+        question_answer_from_context_prompt
+        | question_answer_from_context_llm.with_structured_output(QuestionAnswerFromContext)
+    )
     return question_answer_from_context_cot_chain
-
 
 
 def answer_question_from_context(question, context, question_answer_from_context_chain):
@@ -197,10 +201,7 @@ def answer_question_from_context(question, context, question_answer_from_context
     Returns:
         A dictionary containing the answer, context, and question.
     """
-    input_data = {
-        "question": question,
-        "context": context
-    }
+    input_data = {"question": question, "context": context}
     print("Answering the question from the retrieved context...")
 
     output = question_answer_from_context_chain.invoke(input_data)
@@ -248,8 +249,7 @@ def read_pdf_to_string(path):
     return content
 
 
-
-def bm25_retrieval(bm25: BM25Okapi, cleaned_texts: List[str], query: str, k: int = 5) -> List[str]:
+def bm25_retrieval(bm25: BM25Okapi, cleaned_texts: list[str], query: str, k: int = 5) -> list[str]:
     """
     Perform BM25 retrieval and return the top k cleaned text chunks.
 
@@ -277,7 +277,6 @@ def bm25_retrieval(bm25: BM25Okapi, cleaned_texts: List[str], query: str, k: int
     return top_k_texts
 
 
-
 async def exponential_backoff(attempt):
     """
     Implements exponential backoff with a jitter.
@@ -289,11 +288,12 @@ async def exponential_backoff(attempt):
     The wait time is calculated as (2^attempt) + a random fraction of a second.
     """
     # Calculate the wait time with exponential backoff and jitter
-    wait_time = (2 ** attempt) + random.uniform(0, 1)
+    wait_time = (2**attempt) + random.uniform(0, 1)
     print(f"Rate limit hit. Retrying in {wait_time:.2f} seconds...")
 
     # Asynchronously sleep for the calculated wait time
     await asyncio.sleep(wait_time)
+
 
 async def retry_with_exponential_backoff(coroutine, max_retries=5):
     """
