@@ -211,7 +211,7 @@ langchain-chroma>=0.1.2
 langchainhub>=0.1.20
 langchain-groq>=0.1.6
 langchain-postgres>=0.0.9
-
+langchain-pinecone
 
 imageio>=2.34.2
 imutils>=0.5.4
