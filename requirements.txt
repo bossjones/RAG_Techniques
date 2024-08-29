@@ -1,3 +1,7 @@
+
+# debugpy
+# pytest-memray
+# pytest-recording
 aiohttp==3.9.5
 aiosignal==1.3.1
 annotated-types==0.7.0
@@ -6,7 +10,9 @@ appdirs==1.4.4
 asttokens==2.4.1
 attrs==23.2.0
 beautifulsoup4==4.12.3
+black==24.8.0
 blis==0.7.11
+bpython==0.24
 catalogue==2.0.10
 certifi==2024.7.4
 charset-normalizer==3.3.2
@@ -14,8 +20,11 @@ click==8.1.7
 cloudpathlib==0.18.1
 colorama==0.4.6
 comm==0.2.2
+commitizen
 confection==0.1.5
+coverage[toml]
 cymem==2.0.8
+cz-conventional-gitmoji
 dataclasses-json==0.6.7
 datasets==2.20.0
 debugpy==1.8.2
@@ -25,21 +34,25 @@ Deprecated==1.2.14
 dill==0.3.8
 dirtyjson==1.0.8
 distro==1.9.0
+docformatter[tomli]
 docx2txt==0.8
 dotenv-python==0.0.1
 execnet==2.1.1
 executing==2.0.1
 faiss-cpu==1.8.0.post1
 filelock==3.15.4
+flake8==7.1.1
 frozenlist==1.4.1
 fsspec==2024.5.0
 googleapis-common-protos==1.63.2
 greenlet==3.0.3
+grpc-stubs
 grpcio==1.64.1
 h11==0.14.0
 httpcore==1.0.5
 httpx==0.27.0
 huggingface-hub==0.23.4
+hunter
 idna==3.7
 importlib_metadata==7.1.0
 iniconfig==2.0.0
@@ -54,17 +67,16 @@ jsonpointer==3.0.0
 jupyter_client==8.6.2
 jupyter_core==5.7.2
 jupyterlab_widgets==3.0.11
-langchain==0.2.10
 langchain-community==0.2.9
 langchain-core==0.2.22
 langchain-experimental==0.0.62
 langchain-openai==0.1.17
 langchain-text-splitters==0.2.2
+langchain==0.2.10
 langcodes==3.4.0
 langsmith==0.1.85
 language_data==1.2.0
 llama-cloud==0.0.9
-llama-index==0.10.55
 llama-index-agent-openai==0.2.8
 llama-index-cli==0.1.12
 llama-index-core==0.10.55
@@ -77,13 +89,35 @@ llama-index-program-openai==0.1.6
 llama-index-question-gen-openai==0.1.3
 llama-index-readers-file==0.1.30
 llama-index-readers-llama-parse==0.1.6
+llama-index-retrievers-bm25==0.2.0
+llama-index-vector-stores-faiss==0.1.2
+llama-index==0.10.55
 llama-parse==0.4.7
 marisa-trie==1.2.0
 markdown-it-py==3.0.0
 MarkupSafe==2.1.5
 marshmallow==3.21.3
 matplotlib-inline==0.1.7
+# mdformat-config
+# mdformat-footnote
+# mdformat-frontmatter
+# mdformat-gfm
+# mdformat-mkdocs
+# mdformat-pyproject
 mdurl==0.1.2
+mdx-gh-links
+memray
+# mkdocs
+# mkdocs-include-markdown-plugin
+# mkdocs-jupyter
+# mkdocs-material
+# mkdocs-mermaid2-plugin
+# mkdocs-redirects
+# mkdocs-simple-hooks
+# mkdocs-version-annotations
+# mkdocs-with-pdf
+# mkdocstrings[python]
+monkeytype
 mpmath==1.3.0
 multidict==6.0.5
 multiprocess==0.70.16
@@ -93,6 +127,7 @@ nest-asyncio==1.6.0
 networkx==3.3
 nltk==3.8.1
 numpy==1.26.4
+ollama==0.3.1
 openai==1.35.13
 opentelemetry-api==1.25.0
 opentelemetry-exporter-otlp-proto-common==1.25.0
@@ -102,39 +137,64 @@ opentelemetry-sdk==1.25.0
 opentelemetry-semantic-conventions==0.46b0
 orjson==3.10.6
 packaging==24.1
+pandas-stubs
 pandas==2.2.2
 parso==0.8.4
 pillow==10.4.0
 platformdirs==4.2.2
 pluggy==1.5.0
 portalocker==2.10.1
+pre-commit
 preshed==3.0.9
 prompt_toolkit==3.0.47
 protobuf==4.25.1
 psutil==6.0.0
 pure-eval==0.2.2
-pyarrow==16.1.0
 pyarrow-hotfix==0.6
-pydantic==2.8.2
+pyarrow==16.1.0
 pydantic_core==2.20.1
+pydantic==2.8.2
+pydocstringformatter
+pydocstyle
 Pygments==2.18.0
-PyMuPDF==1.24.7
+pylint
+pylint-per-file-ignores
+pylint-to-ruff
+pymarkdownlnt
+# PyMuPDF==1.24.7
 PyMuPDFb==1.24.6
 pypdf==4.2.0
+pyright
 pysbd==0.3.4
-pytest==8.2.2
-pytest-repeat==0.9.3
-pytest-xdist==3.6.1
+pysnooper
+# pytest
+# pytest-aiohttp
+# pytest-asyncio
+# pytest-clarity
+# pytest-cov
+# pytest-httpx
+# pytest-ignore-flaky
+# pytest-mock
+# pytest-repeat==0.9.3
+# pytest-retry
+# pytest-skip-slow
+# pytest-sugar
+# pytest-xdist==3.6.1
+# pytest==8.2.2
 python-dateutil==2.9.0.post0
 python-dotenv==1.0.1
 pytz==2024.1
+pyupgrade
 PyYAML==6.0.1
 pyzmq==26.0.3
 ragas==0.1.10
 rank-bm25==0.2.2
 regex==2024.5.15
+requests-mock
 requests==2.32.3
-rich==13.7.1
+respx
+rich
+ruff
 safetensors==0.4.3
 scikit-learn==1.5.1
 scipy==1.14.0
@@ -146,9 +206,9 @@ six==1.16.0
 smart-open==7.0.4
 sniffio==1.3.1
 soupsieve==2.5
-spacy==3.7.5
 spacy-legacy==3.0.12
 spacy-loggers==1.0.5
+spacy==3.7.5
 SQLAlchemy==2.0.31
 srsly==2.4.8
 stack-data==0.6.3
@@ -162,118 +222,50 @@ tiktoken==0.7.0
 tokenizers==0.19.1
 torch==2.4.0
 tornado==6.4.1
+towncrier
 tqdm==4.66.4
 traitlets==5.14.3
 transformers==4.43.2
 typer==0.12.3
-typing-inspect==0.9.0
+types-aiofiles
+types-beautifulsoup4
+types-cffi
+types-click
+types-click-spinner
+types-colorama
+types-contextvars
+types-dataclasses
+types-freezegun
+types-html5lib
+types-jsonschema
+types-mock
+types-mypy-extensions
+types-protobuf
+types-psutil
+types-pyasn1
+types-python-jose
+types-pytz
+types-pyyaml
+types-redis
+types-regex
+types-setuptools
+types-six
+types-toml
+types-tqdm
+types-ujson
+types-urllib3
 typing_extensions==4.12.2
+typing-inspect==0.9.0
 tzdata==2024.1
 urllib3==2.2.2
+validate-pyproject[all,store]
 wasabi==1.1.3
 wcwidth==0.2.13
 weasel==0.4.1
 widgetsnbextension==4.0.11
 wrapt==1.16.0
 xxhash==3.4.1
-yarl==1.9.4
-zipp==3.19.2
-ollama==0.3.1
-llama-index-vector-stores-faiss==0.1.2
-llama-index-retrievers-bm25==0.2.0
-
-
-### test deps
-black
-bpython
-flake8
-isort
-mypy
-pre-commit
-pydocstyle
-pytest-cov
-pytest-mock
-pytest-sugar
-pytest
-pyupgrade
-requests-mock
-rich
-ruff
-types-beautifulsoup4
-types-boto
-types-mock
-types-pyyaml
-types-aiofiles
-types-click
-types-colorama
-types-dataclasses
-types-freezegun
-types-pytz
-types-setuptools
-types-six
-monkeytype
-hunter
-types-html5lib
-types-pyasn1
-types-python-jose
-typing-extensions
-pyright
-pytest-asyncio
-validate-pyproject[all,store]
-pylint-per-file-ignores
-pylint
-docformatter[tomli]
-pytest-httpx
-coverage[toml]
-types-ujson
-types-tqdm
-types-toml
-types-regex
-types-redis
-types-psutil
-types-mypy-extensions
-types-jsonschema
-types-click-spinner
-types-cffi
-pandas-stubs
-types-urllib3
-grpc-stubs
-types-protobuf
-types-contextvars
-pytest-aiohttp
-pytest-skip-slow
-pytest-clarity
-pytest-retry
-commitizen
-cz-conventional-gitmoji
-pydocstringformatter
-pylint-to-ruff
-mkdocs
-mkdocs-material
-mkdocs-mermaid2-plugin
-mkdocs-with-pdf
-towncrier
-mdformat-pyproject
-mdformat-gfm
-mdformat-frontmatter
-mdformat-config
-mdx-gh-links
-mkdocs-simple-hooks
-mkdocs-version-annotations
-mkdocs-include-markdown-plugin
-pytest-ignore-flaky
-mdformat-footnote
-mkdocstrings[python]
-mkdocs-jupyter
-mkdocs-redirects
-mdformat-mkdocs
 yamlfix
 yamllint
-pymarkdownlnt
-respx
-memray
-pytest-memray
-pytest-recording
-debugpy
-manhole
-pysnooper
+yarl==1.9.4
+zipp==3.19.2
