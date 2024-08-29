@@ -12,28 +12,30 @@ Dependencies:
 Custom modules:
 - helper_functions (for RAG-specific operations)
 """
+from __future__ import annotations
 
 import json
+
 from typing import List, Tuple
 
 from deepeval import evaluate
-from deepeval.metrics import GEval, FaithfulnessMetric, ContextualRelevancyMetric
+from deepeval.metrics import ContextualRelevancyMetric, FaithfulnessMetric, GEval
 from deepeval.test_case import LLMTestCase, LLMTestCaseParams
 from langchain_openai import ChatOpenAI
 
-
 from helper_functions import (
-    create_question_answer_from_context_chain,
     answer_question_from_context,
-    retrieve_context_per_question
+    create_question_answer_from_context_chain,
+    retrieve_context_per_question,
 )
 
+
 def create_deep_eval_test_cases(
-    questions: List[str],
-    gt_answers: List[str],
-    generated_answers: List[str],
-    retrieved_documents: List[str]
-) -> List[LLMTestCase]:
+    questions: list[str],
+    gt_answers: list[str],
+    generated_answers: list[str],
+    retrieved_documents: list[str]
+) -> list[LLMTestCase]:
     """
     Create a list of LLMTestCase objects for evaluation.
 
@@ -93,10 +95,10 @@ def evaluate_rag(chunks_query_retriever, num_questions: int = 5) -> None:
     """
     llm = ChatOpenAI(temperature=0, model_name="gpt-4o", max_tokens=2000)
     question_answer_from_context_chain = create_question_answer_from_context_chain(llm)
-    
+
     # Load questions and answers from JSON file
     q_a_file_name = "../data/q_a.json"
-    with open(q_a_file_name, "r", encoding="utf-8") as json_file:
+    with open(q_a_file_name, encoding="utf-8") as json_file:
         q_a = json.load(json_file)
 
     questions = [qa["question"] for qa in q_a][:num_questions]

@@ -755,6 +755,8 @@ select = [
 # SOURCE: https://github.com/ansible-collections/cloud-content-handbook/blob/9be137d78af4d1cc140b210f3058977164021c9d/proposals/ruff_transition.md - end
 # Conflicts with the formatter
 ignore = [
+    "W293",
+    "W291",
     "PLW0603",
     "D",
     "COM812",

@@ -107,7 +107,7 @@ fmt-md f:
 	mdformat {{ f }}
 
 # format all code using pre-commit config
-fmt: fmt-python fmt-toml fmt-markdown fmt-markdown fmt-markdown-pre-commit
+fmt: fmt-python fmt-toml
 
 # lint python files using ruff
 lint-python:
