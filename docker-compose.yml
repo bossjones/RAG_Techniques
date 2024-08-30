@@ -28,6 +28,15 @@ services:
       - POSTGRES_PASSWORD=langchain
       - POSTGRES_USER=langchain
       - POSTGRES_DB=langchain
-
+    command: |
+      postgres -c log_statement=all
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "psql postgresql://langchain:langchain@localhost/langchain --command 'SELECT 1;' || exit 1",
+        ]
+      interval: 5s
+      retries: 60
 volumes:
   db:
