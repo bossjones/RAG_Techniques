@@ -1,3 +1,8 @@
+#!/usr/bin/env python3
+# pylint: disable=no-member
+# pylint: disable=consider-using-tuple
+# pyright: ignore[reportOperatorIssue]
+# pyright: ignore[reportOptionalIterable]
 from __future__ import annotations
 
 import contextvars
@@ -304,8 +309,6 @@ def global_log_config(log_level: Union[str, int] = logging.DEBUG, json: bool = F
     seen = set()
     for name in [
         *logging.root.manager.loggerDict.keys(),  # pylint: disable=no-member
-        # "requests.packages.urllib3.connectionpool",
-        # "handler",
         "asyncio",
         "discord",
         "discord.client",
@@ -313,19 +316,6 @@ def global_log_config(log_level: Union[str, int] = logging.DEBUG, json: bool = F
         "discord.http",
         "chromadb",
         "langchain_chroma",
-        # "selenium",
-        # "webdriver_manager",
-        # "arsenic",
-        # "aiohttp",
-        # "tensorflow",
-        # "keras",
-        # "gunicorn",
-        # "gunicorn.access",
-        # "gunicorn.error",
-        # "uvicorn",
-        # "uvicorn.access",
-        # "uvicorn.error",
-        # "uvicorn.config",
     ]:
         if name not in seen:
             seen.add(name.split(".")[0])
@@ -441,7 +431,7 @@ global_log_config(
 
 
 # Load the example inputs from q_a.json
-with open("../q_a.json") as file:
+with open("data/q_a.json") as file:
     example_inputs = [
         (item["question"], item["answer"])
         for item in json.load(file)
@@ -449,6 +439,9 @@ with open("../q_a.json") as file:
 
 client = langsmith.Client()
 dataset_name = "Climate Change Q&A"
+
+# import bpdb
+# bpdb.set_trace()
 
 # Storing inputs in a dataset lets us
 # run chains and LLMs over a shared set of examples.
@@ -459,7 +452,7 @@ dataset = client.create_dataset(
 for input_prompt, output_answer in example_inputs:
     client.create_example(
         inputs={"question": input_prompt},
-        outputs={"answer": output_answer},
+        outputs={"output_answer": output_answer},
         metadata={"source": "Various"},
         dataset_id=dataset.id,
     )
