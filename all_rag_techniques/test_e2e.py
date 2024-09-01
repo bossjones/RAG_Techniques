@@ -1,15 +1,5 @@
 #!/usr/bin/env python3
 
-# %% [markdown]
-# ![image.png](attachment:image.png)
-
-# %% [markdown]
-# # References
-#
-# - https://github.com/taikinman/langrila/blob/main/src/langrila/openai/model_config.py
-# - https://docs.smith.langchain.com/tutorials/Developers/rag#evaluator
-
-# %%
 from __future__ import annotations
 
 import os
@@ -20,12 +10,91 @@ import typing
 from typing import List
 
 import bpdb
+import dotenv
 import rich
 
 from langchain_core.documents import Document
 from langchain_core.prompts import HumanMessagePromptTemplate, SystemMessagePromptTemplate
 from loguru import logger as LOGGER
 
+
+# Reload the variables in your '.env' file (override the existing variables)
+dotenv.load_dotenv("../.env", override=True)
+
+
+import logging
+import os
+import sys
+
+from dotenv import load_dotenv
+
+
+sys.path.append(os.path.abspath(os.path.join(os.getcwd(), '..'))) # Add the parent directory to the path since we work with notebooks
+import logging
+
+from importlib.metadata import version
+from typing import Any, List
+
+import bs4
+import langsmith
+import openai
+import pysnooper
+import rich
+
+from langchain import hub
+from langchain.agents import AgentExecutor
+from langchain.chains.combine_documents import create_stuff_documents_chain
+from langchain.chains.question_answering import load_qa_chain
+from langchain.pydantic_v1 import BaseModel
+from langchain_anthropic import ChatAnthropic
+from langchain_chroma import Chroma
+from langchain_community.document_loaders import WebBaseLoader
+from langchain_core.documents import Document
+from langchain_core.messages import AIMessage
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.pydantic_v1 import BaseModel, Field
+from langchain_core.runnables import (
+    ConfigurableField,
+    Runnable,
+    RunnableBranch,
+    RunnableLambda,
+    RunnableMap,
+    RunnablePassthrough,
+)
+from langchain_openai import ChatOpenAI, OpenAI, OpenAIEmbeddings
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langsmith import traceable
+from langsmith.evaluation import EvaluationResults, LangChainStringEvaluator, evaluate
+from langsmith.run_trees import RunTree
+from langsmith.schemas import Example, Run
+from langsmith.wrappers import wrap_openai
+from loguru import logger
+from loguru import logger as LOGGER
+from loguru._defaults import LOGURU_FORMAT
+from openai import OpenAI
+from openai.types.chat.chat_completion import ChatCompletion
+
+from evaluation.evalute_rag import *
+from helper_functions import *
+from logging_utils import get_logger, global_log_config
+
+
+global_log_config(
+    log_level=logging.getLevelName("DEBUG"),
+    json=False,
+)
+LOGGER.disable("ipykernel.")
+LOGGER.disable("ipykernel.kernelbase")
+LOGGER.disable("openai._base_client")
+LOGGER.disable("httpcore._trace")
+
+import warnings
+
+
+os.environ["USER_AGENT"] =  (
+    f"boss-rag-techniques/0.1.0 | Python/" f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+)
 
 # SOURCE: https://github.com/taikinman/langrila/blob/main/src/langrila/openai/model_config.py
 # SOURCE: https://github.com/taikinman/langrila/blob/main/src/langrila/openai/model_config.py
@@ -78,7 +147,37 @@ _OLDER_MODEL_CONFIG = {
     },
 }
 
+# "claude-instant-1.2": 100000,
+# "claude-3-opus-20240229": 200000,
+# "claude-3-sonnet-20240229": 200000,
+# "claude-3-5-sonnet-20240620": 200000,
+# "claude-3-haiku-20240307": 200000,
+
 _NEWER_MODEL_CONFIG = {
+    "claude-3-5-sonnet-20240620": {
+        "max_tokens": 2048,
+        "max_output_tokens": 16384,
+        "prompt_cost_per_token": 0.0000025,
+        "completion_cost_per_token": 0.00001,
+    },
+    "claude-3-opus-20240229": {
+        "max_tokens": 2048,
+        "max_output_tokens": 16384,
+        "prompt_cost_per_token": 0.0000025,
+        "completion_cost_per_token": 0.00001,
+    },
+    "claude-3-sonnet-20240229": {
+        "max_tokens": 2048,
+        "max_output_tokens": 16384,
+        "prompt_cost_per_token": 0.0000025,
+        "completion_cost_per_token": 0.00001,
+    },
+    "claude-3-haiku-20240307": {
+        "max_tokens": 2048,
+        "max_output_tokens": 16384,
+        "prompt_cost_per_token": 0.0000025,
+        "completion_cost_per_token": 0.00001,
+    },
     "gpt-4o-2024-08-06": {
         "max_tokens": 128000,
         "max_output_tokens": 16384,
@@ -172,6 +271,10 @@ MODEL_POINT = {
     "gpt-4-vision": "gpt-4-vision-preview",
     "gpt-3.5-turbo": "gpt-3.5-turbo-0125",
     "gpt-3.5-turbo-16k": "gpt-3.5-turbo-16k-0613",
+    "claude-3-opus": "claude-3-opus-20240229",
+    "claude-3-sonnet": "claude-3-sonnet-20240229",
+    "claude-3-haiku": "claude-3-haiku-20240307",
+    "claude-3-5-sonnet": "claude-3-5-sonnet-20240620",
 }
 
 _MODEL_POINT_CONFIG = {
@@ -183,6 +286,10 @@ _MODEL_POINT_CONFIG = {
     "gpt-4-vision": MODEL_CONFIG[MODEL_POINT["gpt-4-vision"]],
     "gpt-3.5-turbo": MODEL_CONFIG[MODEL_POINT["gpt-3.5-turbo"]],
     "gpt-3.5-turbo-16k": MODEL_CONFIG[MODEL_POINT["gpt-3.5-turbo-16k"]],
+    "claude-3-opus": MODEL_CONFIG[MODEL_POINT["claude-3-opus"]],
+    "claude-3-5-sonnet": MODEL_CONFIG[MODEL_POINT["claude-3-5-sonnet"]],
+    "claude-3-sonnet": MODEL_CONFIG[MODEL_POINT["claude-3-sonnet"]],
+    "claude-3-haiku": MODEL_CONFIG[MODEL_POINT["claude-3-haiku"]],
 }
 
 # contains all the models and embeddings info
@@ -199,92 +306,13 @@ EMBEDDING_MODEL_DIMENSIONS_DATA = {
     "text-embedding-3-large": 1024,
 }
 
-# MAX_TOKENS_DATA = MAX_TOKENS = {
-#     'text-embedding-ada-002': 8000,
-#     'gpt-3.5-turbo': 16000,
-#     'gpt-3.5-turbo-0125': 16000,
-#     'gpt-3.5-turbo-0613': 4000,
-#     'gpt-3.5-turbo-1106': 16000,
-#     'gpt-3.5-turbo-16k': 16000,
-#     'gpt-3.5-turbo-16k-0613': 16000,
-#     'gpt-4': 8000,
-#     'gpt-4-0613': 8000,
-#     'gpt-4-32k': 32000,
-#     'gpt-4-1106-preview': 128000,  # 128K, but may be limited by config.max_model_tokens
-#     'gpt-4-0125-preview': 128000,  # 128K, but may be limited by config.max_model_tokens
-#     'gpt-4o': 128000,  # 128K, but may be limited by config.max_model_tokens
-#     'gpt-4o-2024-05-13': 128000,  # 128K, but may be limited by config.max_model_tokens
-#     'gpt-4-turbo-preview': 128000,  # 128K, but may be limited by config.max_model_tokens
-#     'gpt-4-turbo-2024-04-09': 128000,  # 128K, but may be limited by config.max_model_tokens
-#     'gpt-4-turbo': 128000,  # 128K, but may be limited by config.max_model_tokens
-#     'gpt-4o-mini': 128000,  # 128K, but may be limited by config.max_model_tokens
-#     'gpt-4o-mini-2024-07-18': 128000,  # 128K, but may be limited by config.max_model_tokens
-#     'gpt-4o-2024-08-06': 128000,  # 128K, but may be limited by config.max_model_tokens
-#     'claude-instant-1': 100000,
-#     'claude-2': 100000,
-#     'command-nightly': 4096,
-#     'replicate/llama-2-70b-chat:2c1608e18606fad2812020dc541930f2d0495ce32eee50074220b87300bc16e1': 4096,
-#     'meta-llama/Llama-2-7b-chat-hf': 4096,
-#     'vertex_ai/codechat-bison': 6144,
-#     'vertex_ai/codechat-bison-32k': 32000,
-#     'vertex_ai/claude-3-haiku@20240307': 100000,
-#     'vertex_ai/claude-3-sonnet@20240229': 100000,
-#     'vertex_ai/claude-3-opus@20240229': 100000,
-#     'vertex_ai/claude-3-5-sonnet@20240620': 100000,
-#     'vertex_ai/gemini-1.5-pro': 1048576,
-#     'vertex_ai/gemini-1.5-flash': 1048576,
-#     'vertex_ai/gemma2': 8200,
-#     'codechat-bison': 6144,
-#     'codechat-bison-32k': 32000,
-#     'anthropic.claude-instant-v1': 100000,
-#     'anthropic.claude-v1': 100000,
-#     'anthropic.claude-v2': 100000,
-#     'anthropic/claude-3-opus-20240229': 100000,
-#     'anthropic/claude-3-5-sonnet-20240620': 100000,
-#     'bedrock/anthropic.claude-instant-v1': 100000,
-#     'bedrock/anthropic.claude-v2': 100000,
-#     'bedrock/anthropic.claude-v2:1': 100000,
-#     'bedrock/anthropic.claude-3-sonnet-20240229-v1:0': 100000,
-#     'bedrock/anthropic.claude-3-haiku-20240307-v1:0': 100000,
-#     'bedrock/anthropic.claude-3-5-sonnet-20240620-v1:0': 100000,
-#     'claude-3-5-sonnet': 100000,
-#     'groq/llama3-8b-8192': 8192,
-#     'groq/llama3-70b-8192': 8192,
-#     'groq/mixtral-8x7b-32768': 32768,
-#     'groq/llama-3.1-8b-instant': 131072,
-#     'groq/llama-3.1-70b-versatile': 131072,
-#     'groq/llama-3.1-405b-reasoning': 131072,
-#     'ollama/llama3': 4096,
-#     'watsonx/meta-llama/llama-3-8b-instruct': 4096,
-#     "watsonx/meta-llama/llama-3-70b-instruct": 4096,
-#     "watsonx/meta-llama/llama-3-405b-instruct": 16384,
-#     "watsonx/ibm/granite-13b-chat-v2": 8191,
-#     "watsonx/ibm/granite-34b-code-instruct": 8191,
-#     "watsonx/mistralai/mistral-large": 32768,
-# }
-
-# MAX_RETRIES: int = 9
-# MAX_TOKENS: int = MAX_TOKENS_DATA[LLM_MODEL_NAME]
-
-# 'gpt-4o-mini': {
-#     'max_tokens': 128000,
-#     'max_output_tokens': 16384,
-#     'prompt_cost_per_token': 1.5e-07,
-#     'completion_cost_per_token': 6e-07
-# },
-
-
-# %%
-# rich.print(MODEL_ZOO)
-# rich.print(MODEL_CONFIG)
-
-
-# %%
-# Top level vars
 
 
 EVAL_MAX_CONCURRENCY = 4
 LLM_MODEL_NAME = "gpt-4o-mini"
+# LLM_MODEL_NAME = "claude-3-5-sonnet"
+# PROVIDER = "anthropic" # "openai" or "anthropic"
+PROVIDER = "openai" # "openai" or "anthropic"
 CHUNK_SIZE: int=1000
 CHUNK_OVERLAP: int = 200
 ADD_START_INDEX: bool = False
@@ -326,139 +354,12 @@ def get_model_config(model_name: str = LLM_MODEL_NAME, embedding_model_name: str
 LLM_RUN_CONFIG = get_model_config()
 rich.print(LLM_RUN_CONFIG)
 
-# %% [markdown]
-# # Simple RAG (Retrieval-Augmented Generation) System
-#
-# ## Overview
-#
-# This code implements a basic Retrieval-Augmented Generation (RAG) system for processing and querying PDF documents. The system encodes the document content into a vector store, which can then be queried to retrieve relevant information.
-#
-# ## Key Components
-#
-# 1. PDF processing and text extraction
-# 2. Text chunking for manageable processing
-# 3. Vector store creation using [FAISS](https://engineering.fb.com/2017/03/29/data-infrastructure/faiss-a-library-for-efficient-similarity-search/) and OpenAI embeddings
-# 4. Retriever setup for querying the processed documents
-# 5. Evaluation of the RAG system
-#
-# ## Method Details
-#
-# ### Document Preprocessing
-#
-# 1. The PDF is loaded using PyPDFLoader.
-# 2. The text is split into chunks using RecursiveCharacterTextSplitter with specified chunk size and overlap.
-#
-# ### Text Cleaning
-#
-# A custom function `replace_t_with_space` is applied to clean the text chunks. This likely addresses specific formatting issues in the PDF.
-#
-# ### Vector Store Creation
-#
-# 1. OpenAI embeddings are used to create vector representations of the text chunks.
-# 2. A FAISS vector store is created from these embeddings for efficient similarity search.
-#
-# ### Retriever Setup
-#
-# 1. A retriever is configured to fetch the top 2 most relevant chunks for a given query.
-#
-# ### Encoding Function
-#
-# The `encode_pdf` function encapsulates the entire process of loading, chunking, cleaning, and encoding the PDF into a vector store.
-#
-# ## Key Features
-#
-# 1. Modular Design: The encoding process is encapsulated in a single function for easy reuse.
-# 2. Configurable Chunking: Allows adjustment of chunk size and overlap.
-# 3. Efficient Retrieval: Uses FAISS for fast similarity search.
-# 4. Evaluation: Includes a function to evaluate the RAG system's performance.
-#
-# ## Usage Example
-#
-# The code includes a test query: "What is the main cause of climate change?". This demonstrates how to use the retriever to fetch relevant context from the processed document.
-#
-# ## Evaluation
-#
-# The system includes an `evaluate_rag` function to assess the performance of the retriever, though the specific metrics used are not detailed in the provided code.
-#
-# ## Benefits of this Approach
-#
-# 1. Scalability: Can handle large documents by processing them in chunks.
-# 2. Flexibility: Easy to adjust parameters like chunk size and number of retrieved results.
-# 3. Efficiency: Utilizes FAISS for fast similarity search in high-dimensional spaces.
-# 4. Integration with Advanced NLP: Uses OpenAI embeddings for state-of-the-art text representation.
-#
-# ## Conclusion
-#
-# This simple RAG system provides a solid foundation for building more complex information retrieval and question-answering systems. By encoding document content into a searchable vector store, it enables efficient retrieval of relevant information in response to queries. This approach is particularly useful for applications requiring quick access to specific information within large documents or document collections.
-
-# %% [markdown]
-# ### Import libraries and environment variables
-
-# %%
-
-
-import dotenv
-
-
-# Reload the variables in your '.env' file (override the existing variables)
-dotenv.load_dotenv("../.env", override=True)
-
-# %%
-import logging
-import os
-import sys
-
-from dotenv import load_dotenv
-
-
-sys.path.append(os.path.abspath(os.path.join(os.getcwd(), '..'))) # Add the parent directory to the path since we work with notebooks
-from importlib.metadata import version
-
-from langsmith import traceable
-from langsmith.wrappers import wrap_openai
-from loguru import logger
-from loguru import logger as LOGGER
-from loguru._defaults import LOGURU_FORMAT
-from openai import OpenAI
-
-from evaluation.evalute_rag import *
-from helper_functions import *
-from logging_utils import get_logger, global_log_config
-
-
-global_log_config(
-    log_level=logging.getLevelName("DEBUG"),
-    json=False,
-)
-LOGGER.disable("ipykernel.")
-LOGGER.disable("ipykernel.kernelbase")
-LOGGER.disable("openai._base_client")
-LOGGER.disable("httpcore._trace")
-
-import warnings
-
-
-os.environ["USER_AGENT"] =  (
-    f"boss-rag-techniques/0.1.0 | Python/" f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
-)
-
-
-# from pydantic.errors import PydanticDeprecatedSince20
-
-# Filter and suppress the specific warning
-# warnings.filterwarnings("ignore", category=PydanticDeprecatedSince20, message="The `__fields__` attribute is deprecated*")
-
-
-# %% [markdown]
-# ### Read Docs
-
-# %%
 path = "../data/Understanding_Climate_Change.pdf"
 
-# %% [markdown]
+
 # ### Encode document
 
-# %%
+
 def encode_pdf(path, chunk_size: int = CHUNK_SIZE, chunk_overlap: int = CHUNK_OVERLAP, add_start_index: bool = ADD_START_INDEX, llm_embedding_model_name: str = LLM_EMBEDDING_MODEL_NAME):
     """
     Encodes a PDF book into a vector store using OpenAI embeddings.
@@ -499,78 +400,29 @@ def encode_pdf(path, chunk_size: int = CHUNK_SIZE, chunk_overlap: int = CHUNK_OV
 
     return vectorstore
 
-# %%
+
 chunks_vector_store = encode_pdf(path, chunk_size = CHUNK_SIZE, chunk_overlap = CHUNK_OVERLAP, add_start_index = ADD_START_INDEX, llm_embedding_model_name = LLM_EMBEDDING_MODEL_NAME)
 
-# %% [markdown]
+
 # ### Create retriever
 
-# %%
+
 chunks_query_retriever = chunks_vector_store.as_retriever(search_kwargs=DEFAULT_SEARCH_KWARGS)
 
-# %% [markdown]
+
 # ### Test retriever
 
-# %%
+
 test_query = QUESTION_TO_ASK
 context = retrieve_context_per_question(test_query, chunks_query_retriever)
 show_context(context)
 
-# %% [markdown]
-# ### Evaluate results
-
-# %%
-# evaluate_rag(chunks_query_retriever)
-
-# %%
-import bs4
-
-# %%
-# testing some stuff out
-import rich
-
-from langchain import hub
-from langchain_chroma import Chroma
-from langchain_community.document_loaders import WebBaseLoader
-from langchain_core.output_parsers import StrOutputParser
-from langchain_core.runnables import RunnablePassthrough
-from langchain_openai import OpenAIEmbeddings
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-
-
 rag_prompt = hub.pull("rlm/rag-prompt")
-
-# rich.inspect(rag_prompt, all=True)
-
-# %% [markdown]
-# # create sample rag bot that can be used for evaluation rag testing later on
-
-# %%
-### RAG bot
-# SOURCE: https://docs.smith.langchain.com/tutorials/Developers/rag
 
 # alias retriever
 retriever = chunks_query_retriever
 
-import logging
 
-from typing import Any, List
-
-import openai
-import pysnooper
-import rich
-
-from langchain.chains.combine_documents import create_stuff_documents_chain
-from langchain.chains.question_answering import load_qa_chain
-from langchain.pydantic_v1 import BaseModel
-from langchain_core.documents import Document
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.pydantic_v1 import BaseModel
-from langchain_core.runnables import ConfigurableField, Runnable, RunnableBranch, RunnableLambda, RunnableMap
-from langchain_openai import ChatOpenAI, OpenAI
-from langsmith import traceable
-from langsmith.wrappers import wrap_openai
-from openai.types.chat.chat_completion import ChatCompletion
 
 
 class RAGResponse(BaseModel):
@@ -583,12 +435,13 @@ def format_docs(docs: list[Document]):
 
 class RagBot:
 
-    def __init__(self, retriever = retriever, model: str = LLM_MODEL_NAME, llm: Any = None):
+    def __init__(self, retriever = retriever, model: str = LLM_MODEL_NAME, provider: str = PROVIDER):
+        self._provider = provider
         self._retriever = retriever
         # Wrapping the client instruments the LLM
         self._client = wrap_openai(openai.Client())
         self._model = model
-        if llm is None:
+        if self._provider == "openai":
             self._llm = ChatOpenAI(
                 name="ChatOpenAI",
                 streaming=True,
@@ -598,8 +451,14 @@ class RagBot:
                 # max_tokens=MAX_TOKENS,
                 temperature=0.0,
             )
-        else:
-            self._llm = llm
+        elif self._provider == "anthropic":
+            self._llm = ChatAnthropic(
+                name="ChatAnthropic",
+                streaming=True,
+                model=self._model,
+                max_retries=9,
+                temperature=0.0,
+            )
 
     @traceable()
     def execute_chain(self, question: str):
@@ -617,13 +476,13 @@ class RagBot:
     @traceable()
     async def aexecute_chain(self, question: str):
         chain = self.build_chain(question)
-        return await chain.ainvoke(question)
+        return await chain.ainvoke({"question": question})
 
     @traceable()
     def stream_chain(self, question: str):
         chain = self.build_chain(question)
         chunks = []
-        for chunk in chain.stream(question):
+        for chunk in chain.stream({"question": question}):
             rich.print(chunk.content, flush=True)
             chunks.append(chunk.content)
         return "".join(chunks)
@@ -632,19 +491,11 @@ class RagBot:
     async def astream_chain(self, question: str):
         chain = self.build_chain(question)
         chunks = []
-        async for chunk in chain.astream(question):
+        async for chunk in chain.astream({"question": question}):
             chunks.append(chunk)
             rich.print(chunk.content, flush=True)
         return "".join(chunks)
 
-
-    @traceable()
-    def retrieve_docs(self, question):
-        # bpdb.set_trace()
-        docs = self._retriever.invoke(question)
-        rich.print(docs)
-        rich.inspect(docs, all=True)
-        return self._retriever.invoke(question)
 
     # @pysnooper.snoop()
     @traceable()
@@ -660,69 +511,116 @@ class RagBot:
         Returns:
             A LangChain LLMChain object representing the RAG chain.
         """
-        system_template = (
-            "You are a helpful AI code assistant with expertise in climate change. "
-            "Use the following docs to produce a concise code solution to the user question.\n\n"
-            "## Docs\n\n{context}"
-        )
+        if self._provider == "openai":
+            LOGGER.info("OpenAI selected")
+            system_template = (
+                "You are a helpful AI code assistant with expertise in climate change. "
+                "Use the following docs to produce a concise code solution to the user question.\n\n"
+                "## Docs\n\n{context}"
+            )
 
-        # SystemMessage
-        # This represents a message with role "system", which tells the model how to behave. Not every model provider supports this.
-        # system_message_prompt = SystemMessagePromptTemplate.from_template(system_template)
+            # SystemMessage
+            # This represents a message with role "system", which tells the model how to behave. Not every model provider supports this.
+            # system_message_prompt = SystemMessagePromptTemplate.from_template(system_template)
 
-        # human_template = "{question}"
-        # human_message_prompt = HumanMessagePromptTemplate.from_template(human_template)
+            # human_template = "{question}"
+            # human_message_prompt = HumanMessagePromptTemplate.from_template(human_template)
 
-        # chat_prompt = ChatPromptTemplate.from_messages([system_message_prompt, human_message_prompt])
+            # chat_prompt = ChatPromptTemplate.from_messages([system_message_prompt, human_message_prompt])
 
-        # # chain = LLMChain(llm=self._llm, prompt=chat_prompt)
+            # # chain = LLMChain(llm=self._llm, prompt=chat_prompt)
 
-        # question_answer_chain = create_stuff_documents_chain(self._llm, chat_prompt)
-        # # rag_chain = create_retrieval_chain(self._retriever, question_answer_chain)
-        # READ THIS: https://python.langchain.com/v0.2/docs/how_to/qa_sources/
+            # question_answer_chain = create_stuff_documents_chain(self._llm, chat_prompt)
+            # # rag_chain = create_retrieval_chain(self._retriever, question_answer_chain)
+            # READ THIS: https://python.langchain.com/v0.2/docs/how_to/qa_sources/
 
-        base_human_template = "You are an assistant for question-answering tasks. Use the following pieces of retrieved context to answer the question. If you don't know the answer, just say that you don't know. Use three sentences maximum and keep the answer concise.\n\nQuestion: {question} \n\nContext: {context} \n\nAnswer:"
+            # FIXME: I think this should be moved to the system template and human should only have a single variable eg {question}.
+            base_human_template = "You are an assistant for question-answering tasks. Use the following pieces of retrieved context to answer the question. If you don't know the answer, just say that you don't know. Use three sentences maximum and keep the answer concise.\n\nQuestion: {question} \n\nContext: {context} \n\nAnswer:"
 
-        base_prompt = ChatPromptTemplate.from_messages([
-        ("system", system_template),
-        ("human", base_human_template),
-        ])
+            base_prompt = ChatPromptTemplate.from_messages([
+            ("system", system_template),
+            ("human", base_human_template),
+            ])
 
-        LOGGER.debug(base_prompt)
+            LOGGER.debug(base_prompt)
 
-        # Version 1
-        # rag_chain_from_docs = (
-        #     {
-        #         "question": RunnablePassthrough(), # input query. RunnablePassthrough() just passes the input through, ie the input query/question.
-        #         "context": retriever | format_docs, # context
-        #     }
-        #     | base_prompt   # format query and context into prompt
-        #     | self._llm # generate response
-        #     | StrOutputParser()  # coerce to string
-        # )
+            # Version 1
+            # rag_chain_from_docs = (
+            #     {
+            #         "question": RunnablePassthrough(), # input query. RunnablePassthrough() just passes the input through, ie the input query/question.
+            #         "context": retriever | format_docs, # context
+            #     }
+            #     | base_prompt   # format query and context into prompt
+            #     | self._llm # generate response
+            #     | StrOutputParser()  # coerce to string
+            # )
 
 
-        rag_chain_from_docs = (
-            {
-                "question": lambda x: x["question"], # input query. RunnablePassthrough() just passes the input through, ie the input query/question.
-                "context": lambda x: format_docs(x["context"]), # context
-            }
-            | base_prompt   # format query and context into prompt
-            | self._llm # generate response
-            | StrOutputParser()  # coerce to string
-        )
-        # Pass input query to retriever
-        retrieve_docs = (lambda x: x["question"]) | retriever
+            rag_chain_from_docs = (
+                {
+                    "question": lambda x: x["question"], # input query. RunnablePassthrough() just passes the input through, ie the input query/question.
+                    "context": lambda x: format_docs(x["context"]), # context
+                }
+                | base_prompt   # format query and context into prompt
+                | self._llm # generate response
+                | StrOutputParser()  # coerce to string
+            )
+            # Pass input query to retriever
+            retrieve_docs = (lambda x: x["question"]) | self._retriever
 
-        # Below, we chain `.assign` calls. This takes a dict and successively
-        # adds keys-- "context" and "answer"-- where the value for each key
-        # is determined by a Runnable. The Runnable operates on all existing
-        # keys in the dict.
-        chain = RunnablePassthrough.assign(context=retrieve_docs).assign(
-            answer=rag_chain_from_docs
-        )
+            # Below, we chain `.assign` calls. This takes a dict and successively
+            # adds keys-- "context" and "answer"-- where the value for each key
+            # is determined by a Runnable. The Runnable operates on all existing
+            # keys in the dict.
+            chain = RunnablePassthrough.assign(context=retrieve_docs).assign(
+                answer=rag_chain_from_docs
+            )
 
-        chain.get_graph().print_ascii()
+            chain.get_graph().print_ascii()
+
+        elif self._provider == "anthropic":
+            LOGGER.info("Anthropic selected")
+            system_template = (
+                "You are a helpful AI code assistant with expertise in climate change. Use the following docs to produce a concise code solution to the user question.\n\n## Docs\n\n{context}"
+            )
+
+            base_human_template = "You are an assistant for question-answering tasks. Use the following pieces of retrieved context to answer the question. If you don't know the answer, just say that you don't know. Use three sentences maximum and keep the answer concise.\n\nQuestion: {question} \n\nContext: {context} \n\nAnswer:"
+
+
+            base_prompt = ChatPromptTemplate.from_messages(
+                [
+                    (
+                        "system",
+                        system_template,
+                    ),
+                    ("human", base_human_template),
+                ]
+            )
+
+            LOGGER.debug(base_prompt)
+
+
+            rag_chain_from_docs = (
+                {
+                    "question": lambda x: x["question"], # input query. RunnablePassthrough() just passes the input through, ie the input query/question.
+                    "context": lambda x: format_docs(x["context"]), # context
+                }
+                | base_prompt   # format query and context into prompt
+                | self._llm # generate response
+                | StrOutputParser()  # coerce to string
+            )
+            # Pass input query to retriever
+            retrieve_docs = (lambda x: x["question"]) | self._retriever
+
+            # Below, we chain `.assign` calls. This takes a dict and successively
+            # adds keys-- "context" and "answer"-- where the value for each key
+            # is determined by a Runnable. The Runnable operates on all existing
+            # keys in the dict.
+            chain = RunnablePassthrough.assign(context=retrieve_docs).assign(
+                answer=rag_chain_from_docs
+            )
+
+            chain.get_graph().print_ascii()
 
         return chain
 
@@ -762,28 +660,17 @@ fossil fuels for energy significantly contributes to this increase.'
 
 rag_bot = RagBot(retriever)
 
-# %%
+
 # bot smoke test
-
 response = rag_bot.execute_chain(test_query)
-# rich.print(response["answer"][:150])
 rich.print(response)
-# bpdb.set_trace()
-
-# rich.inspect(rag_bot._llm, all=True)
-
-# rag_bot._llm.get_input_schema()
 
 
-# %% [markdown]
+
 # # Let's explore the chain a little bit
-#
-
-# %%
 bot_chain = rag_bot.build_chain(test_query)
-# rich.inspect(bot_chain, all=True)
 
-# %% [markdown]
+
 # # Define a function that will:
 #
 # 1. Take a dataset example
@@ -791,7 +678,7 @@ bot_chain = rag_bot.build_chain(test_query)
 # 3. Pass it to the RAG chain
 # 4. Return the relevant output values from the RAG chain
 
-# %%
+
 def predict_rag_answer(example: dict):
     """Use this for answer evaluation"""
     # bpdb.set_trace()
@@ -806,76 +693,15 @@ def predict_rag_answer_with_context(example: dict):
     response = rag_bot.get_answer(example["input_question"])
     return {"answer": response["answer"], "context": response["context"]}
 
-# %% [markdown]
-# ## Evaluator[](https://docs.smith.langchain.com/tutorials/Developers/rag#evaluator)
-#
-# There are at least 4 types of RAG eval that users are typically interested in.
-#
-# 1. **Response vs reference answer**
-#
-# - `Goal`: Measure "*how similar/correct is the RAG chain answer, relative to a ground-truth answer*"
-# - `Mode`: Uses ground truth (reference) answer supplied through a dataset
-# - `Judge`: Use LLM-as-judge to assess answer correctness.
-#
-# 1. **Response vs input**
-#
-# - `Goal`: Measure "*how well does the generated response address the initial user input*"
-# - `Mode`: Reference-free, because it will compare the answer to the input question
-# - `Judge`: Use LLM-as-judge to assess answer relevance, helpfulness, etc.
-#
-# 1. **Response vs retrieved docs**
-#
-# - `Goal`: Measure "*to what extent does the generated response agree with the retrieved context*"
-# - `Mode`: Reference-free, because it will compare the answer to the retrieved context
-# - `Judge`: Use LLM-as-judge to assess faithfulness, hallucinations, etc.
-#
-# 1. **Retrieved docs vs input**
-#
-# - `Goal`: Measure "*how good are my retrieved results for this query*"
-# - `Mode`: Reference-free, because it will compare the question to the retrieved context
-# - `Judge`: Use LLM-as-judge to assess relevance
 
-# %% [markdown]
-# ![image.png](attachment:image.png)
 
-# %% [markdown]
-# ### **Response vs reference answer**[](https://docs.smith.langchain.com/tutorials/Developers/rag#response-vs-reference-answer)
-#
-# Here is an example prompt that we can use:
-#
-# https://smith.langchain.com/hub/langchain-ai/rag-answer-vs-reference
-#
-# Here is the a video from our LangSmith evaluation series for reference:
-#
-# https://youtu.be/lTfhw_9cJqc?feature=shared
-#
-# Here is our evaluator function:
-#
-# - `run` is the invocation of `predict_rag_answer`, which has key `answer`
-# - `example` is from our eval set, which has keys `question` and `output_answer`
-# - We extract these values and pass them into our grader
 
-# %%
-import langsmith
 
-from langsmith.evaluation import evaluate
 
 
 langsmith_client = langsmith.Client()
 dataset_name = DATASET_NAME
 
-# %%
-from langchain import hub
-from langchain.agents import AgentExecutor
-from langchain_anthropic import ChatAnthropic
-from langchain_core.documents import Document
-from langchain_core.messages import AIMessage
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.pydantic_v1 import BaseModel, Field
-from langchain_openai import ChatOpenAI
-from langsmith.evaluation import EvaluationResults, LangChainStringEvaluator, evaluate
-from langsmith.run_trees import RunTree
-from langsmith.schemas import Example, Run
 
 
 examples = []
@@ -911,13 +737,13 @@ def answer_evaluator(run: Run, example: Example) -> dict:
 
     return {"key": "answer_v_reference_score", "score": score}
 
-# %% [markdown]
+
 # Now, we kick off evaluation:
 #
 # - `predict_rag_answer`: Takes an `example` from our eval set, extracts the question, passes to our RAG chain
 # - `answer_evaluator`: Passes RAG chain answer, question, and ground truth answer to an evaluator
 
-# %%
+
 try:
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
@@ -952,10 +778,10 @@ except Exception as ex:
     rich.print(f"exc_value: {exc_value}")
     traceback.print_tb(exc_traceback)
     bpdb.pm()
-# %%
+
 rich.print(runs)
 
-# %% [markdown]
+
 # # Response vs input
 # Here is an example prompt that we can use:
 #
@@ -963,7 +789,7 @@ rich.print(runs)
 #
 # The information flow is similar to above, but we simply look at the run answer versus the example question.
 
-# %%
+
 # Grade prompt
 grade_prompt_answer_helpfulness = prompt = hub.pull("langchain-ai/rag-answer-helpfulness")
 
@@ -985,12 +811,12 @@ def answer_helpfulness_evaluator(run, example) -> dict:
 
     # Run evaluator
     score = answer_grader.invoke({"question": input_question,
-                                  "student_answer": prediction})
+                                "student_answer": prediction})
     score = score["Score"]
 
     return {"key": "answer_helpfulness_score", "score": score}
 
-# %%
+
 with warnings.catch_warnings():
     warnings.simplefilter("ignore")
     experiment_results = evaluate(
@@ -1013,7 +839,7 @@ with warnings.catch_warnings():
         },
     )
 
-# %% [markdown]
+
 # ### **Response vs retrieved docs**[](https://docs.smith.langchain.com/tutorials/Developers/rag#response-vs-retrieved-docs)
 #
 # Here is an example prompt that we can use:
@@ -1024,7 +850,7 @@ with warnings.catch_warnings():
 #
 # https://youtu.be/IlNglM9bKLw?feature=shared
 
-# %%
+
 # Prompt
 grade_prompt_hallucinations = prompt = hub.pull("langchain-ai/rag-answer-hallucination")
 
@@ -1048,12 +874,12 @@ def answer_hallucination_evaluator(run, example) -> dict:
 
     # Get score
     score = answer_grader.invoke({"documents": context,
-                                  "student_answer": prediction})
+                                "student_answer": prediction})
     score = score["Score"]
 
     return {"key": "answer_hallucination", "score": score}
 
-# %%
+
 with warnings.catch_warnings():
     warnings.simplefilter("ignore")
     experiment_results = evaluate(
@@ -1076,7 +902,7 @@ with warnings.catch_warnings():
         },
     )
 
-# %% [markdown]
+
 # ### **Retrieved docs vs input**[](https://docs.smith.langchain.com/tutorials/Developers/rag#retrieved-docs-vs-input)
 #
 # Here is an example prompt that we can use:
@@ -1087,7 +913,7 @@ with warnings.catch_warnings():
 #
 # https://youtu.be/Fr_7HtHjcf0?feature=shared
 
-# %%
+
 # Grade prompt
 grade_prompt_doc_relevance = hub.pull("langchain-ai/rag-document-relevance")
 
@@ -1113,7 +939,7 @@ def docs_relevance_evaluator(run, example) -> dict:
 
     return {"key": "document_relevance", "score": score}
 
-# %%
+
 with warnings.catch_warnings():
     warnings.simplefilter("ignore")
     experiment_results = evaluate(
@@ -1136,7 +962,7 @@ with warnings.catch_warnings():
         },
     )
 
-# %% [markdown]
+
 # ## Evaluating intermediate steps[](https://docs.smith.langchain.com/tutorials/Developers/rag#evaluating-intermediate-steps)
 #
 # Above, we returned the retrieved documents as part of the final answer.
@@ -1151,7 +977,7 @@ with warnings.catch_warnings():
 #
 # https://youtu.be/yx3JMAaNggQ?feature=shared
 
-# %%
+
 from langsmith.evaluation import evaluate
 from langsmith.schemas import Example, Run
 
@@ -1245,127 +1071,33 @@ with warnings.catch_warnings():
         },
     )
 
-# %% [markdown]
+
+# -------------------------
+# Regression Testing
+# SOURCE: https://docs.smith.langchain.com/old/evaluation/faq/regression-testing
+# -------------------------
+def predict_rag_answer_openai_gpt4o_mini(example: dict):
+    """Use this for answer evaluation"""
+    gpt4o_mini_rag_bot = RagBot(retriever,provider="openai",model="gpt-4o-mini")
+    response = gpt4o_mini_rag_bot.get_answer(example["input_question"])
+    return {"answer": response["answer"]}
+
+def predict_rag_answer_claude_3_5_sonnet(example: dict):
+    """Use this for answer evaluation"""
+    rag_bot = RagBot(retriever, provider="anthropic", model="claude-3-5-sonnet")
+    response = rag_bot.get_answer(example["input_question"])
+    return {"answer": response["answer"]}
+
+# def predict_rag_answer_phi3(example: dict):
+#     """Use this for answer evaluation"""
+#     rag_bot = RagBot(retriever,provider="ollama",model="phi3")
+#     response = rag_bot.get_answer(example["input_question"])
+#     return {"answer": response["answer"]}
+# -------------------------
+# Pairwise Testing
 # -------------------------
 
-# %% [markdown]
 # -------------------------
-# ## Back testing
+# Back Testing
 # SOURCE: https://docs.smith.langchain.com/tutorials/Developers/backtesting
-# %% [markdown]
-# # Evalute w/ Langsmith
-#
-# ## Define metrics
-#
-# After creating our dataset, we can now define some metrics to evaluate our responses on. Since we have an expected answer, we can compare to that as part of our evaluation. However, we do not expect our application to output those exact answers, but rather something that is similar. This makes our evaluation a little trickier.
-#
-# In addition to evaluating correctness, let's also make sure our answers are short and concise. This will be a little easier - we can define a simple Python function to measure the length of the response.
-#
-# Let's go ahead and define these two metrics.
-#
-# For the first, we will use an LLM to judge whether the output is correct (with respect to the expected output). This LLM-as-a-judge is relatively common for cases that are too complex to measure with a simple function. We can define our own prompt and LLM to use for evaluation here:
-
-# %%
-# # SOURCE: https://docs.smith.langchain.com/tutorials/Developers/evaluation
-
-# from langchain_anthropic import ChatAnthropic
-# from langchain_core.prompts.prompt import PromptTemplate
-# from langsmith.evaluation import LangChainStringEvaluator
-
-# dataset_name = "Climate Change Q&A"
-
-
-# # # Storing inputs in a dataset lets us
-# # # run chains and LLMs over a shared set of examples.
-# # dataset = client.create_dataset(
-# #     dataset_name=dataset_name,
-# #     description="Questions and answers about climate change.",
-# # )
-# # for input_prompt, output_answer in example_inputs:
-# #     client.create_example(
-# #         inputs={"question": input_prompt},
-# #         outputs={"answer": output_answer},
-# #         metadata={"source": "Various"},
-# #         dataset_id=dataset.id,
-# #     )
-
-# _PROMPT_TEMPLATE = """You are an expert professor specialized in grading students' answers to questions.
-# You are grading the following question:
-# {query}
-# Here is the real answer:
-# {answer}
-# You are grading the following predicted answer:
-# {result}
-# Respond with CORRECT or INCORRECT:
-# Grade:
-# """
-
-# PROMPT = PromptTemplate(
-#     input_variables=["query", "answer", "result"], template=_PROMPT_TEMPLATE
-# )
-# eval_llm = ChatAnthropic(temperature=0.0)
-
-# qa_evaluator = LangChainStringEvaluator("qa", config={"llm": eval_llm, "prompt": PROMPT})
-
-# %% [markdown]
-# For evaluating the length of the response, this is a lot easier! We can just define a simple function that checks whether the actual output is less than 2x the length of the expected result.
-
-# %%
-# from langsmith.schemas import Run, Example
-
-# def evaluate_length(run: Run, example: Example) -> dict:
-#     prediction = run.outputs.get("output") or ""
-#     required = example.outputs.get("answer") or ""
-#     score = int(len(prediction) < 2 * len(required))
-#     return {"key":"length", "score": score}
-
-# %% [markdown]
-# # Run Evaluations
-#
-# Great! So now how do we run evaluations? Now that we have a dataset and evaluators, all that we need is our application! We will build a simple application that just has a system message with instructions on how to respond and then passes it to the LLM. We will build this using the OpenAI SDK directly:
-
-# %%
-# # my app
-
-# import openai
-
-# openai_client = openai.Client()
-
-# def my_app(question: str):
-#     return openai_client.chat.completions.create(
-#         model="gpt-3.5-turbo",
-#         temperature=0,
-#         messages=[
-#             {
-#                 "role": "system",
-#                 "content": "Respond to the users question in a short, concise manner (one short sentence)."
-#             },
-#             {
-#                 "role": "user",
-#                 "content": question,
-#             }
-#         ],
-#     ).choices[0].message.content
-
-# %% [markdown]
-# Before running this through LangSmith evaluations, we need to define a simple wrapper that maps the input keys from our dataset to the function we want to call, and then also maps the output of the function to the output key we expect.
-#
-#
-
-# %%
-# def langsmith_app(inputs):
-#     output = my_app(inputs["question"])
-#     return {"output": output}
-
-# %% [markdown]
-# Great! Now we're ready to run evaluation. Let's do it!
-
-# %%
-# from langsmith.evaluation import evaluate
-
-# experiment_results = evaluate(
-#     langsmith_app, # Your AI system
-#     data=dataset_name, # The data to predict and grade over
-#     evaluators=[evaluate_length, qa_evaluator], # The evaluators to score the results
-#     experiment_prefix="openai-3.5", # A prefix for your experiment names to easily identify them
-# )
+# -------------------------
