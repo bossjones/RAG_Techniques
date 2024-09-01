@@ -433,8 +433,14 @@ global_log_config(
 LOGGER.disable("ipykernel.")
 LOGGER.disable("ipykernel.kernelbase")
 LOGGER.disable("openai._base_client")
+LOGGER.disable("httpcore._trace")
 
 import warnings
+
+
+os.environ["USER_AGENT"] =  (
+    f"boss-rag-techniques/0.1.0 | Python/" f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+)
 
 
 # from pydantic.errors import PydanticDeprecatedSince20
@@ -598,12 +604,12 @@ class RagBot:
     @traceable()
     def execute_chain(self, question: str):
         chain = self.build_chain(question)
-        # FIXME: Evaluators will expect "answer" and "contexts"
-        # Evaluators will expect "answer" and "contexts"
+        # FIXME: Evaluators will expect "answer" and "context"
+        # Evaluators will expect "answer" and "context"
         # EG:
         # return {
         #     "answer": response.choices[0].message.content,
-        #     "contexts": [str(doc) for doc in docs],
+        #     "context": [str(doc) for doc in docs],
         # }
         # return chain.invoke(question)
         return chain.invoke({"question": question})
@@ -634,6 +640,10 @@ class RagBot:
 
     @traceable()
     def retrieve_docs(self, question):
+        # bpdb.set_trace()
+        docs = self._retriever.invoke(question)
+        rich.print(docs)
+        rich.inspect(docs, all=True)
         return self._retriever.invoke(question)
 
     # @pysnooper.snoop()
@@ -725,6 +735,31 @@ class RagBot:
     def get_answer(self, question: str):
         return self.execute_chain(question)
 
+"""
+# Example response from get_answer()
+{
+    'question': 'What is the main cause of climate change?',
+    'context': [
+        Document(
+            metadata={'source': '../data/Understanding_Climate_Change.pdf', 'page': 0},
+            page_content='driven by human activities, particularly the emission of greenhou se gases.  \nChapter 2: Causes of Climate Change  \nGreenhouse Gases  \nThe primary cause of recent climate change is the increase in greenhouse gases in the \natmosphere.
+Greenhouse gases, such as carbon dioxide (CO2), methane (CH4), and nitrous \noxide (N2O), trap heat from the sun, creating a "greenhouse effect." This effect is  essential \nfor life on Earth, as it keeps the planet warm enough to support life. However, human \nactivities
+have intensified this natural process, leading to a warmer climate.  \nFossil Fuels  \nBurning fossil fuels for energy releases large amounts of CO2. This includes coal, oil, and \nnatural gas used for electricity, heating, and transportation. The industrial revolution
+marked \nthe beginning of a significant increase in fossil fuel consumption, which continues to rise \ntoday.  \nCoal'
+        ),
+        Document(
+            metadata={'source': '../data/Understanding_Climate_Change.pdf', 'page': 0},
+            page_content="Most of these climate changes are attributed to very small variations in Earth's orbit that \nchange the amount of solar energy our planet receives. During the Holocene epoch, which \nbegan at the end of the last ice age, human societies f
+lourished, but the industrial era has seen \nunprecedented changes.  \nModern Observations  \nModern scientific observations indicate a rapid increase in global temperatures, sea levels, \nand extreme weather events. The Intergovernmental Panel on Climate Change (IPCC)
+has \ndocumented these changes extensively. Ice core samples, tree rings, and ocean sediments \nprovide a historical record that scientists use to understand past climate conditions and \npredict future trends. The evidence overwhelmingly shows that recent changes are
+primarily \ndriven by human activities, particularly the emission of greenhou se gases.  \nChapter 2: Causes of Climate Change  \nGreenhouse Gases"
+        )
+    ],
+    'answer': 'The main cause of climate change is the increase in greenhouse gases in the atmosphere, primarily driven by human activities. These gases, such as carbon dioxide (CO2), trap heat from the sun, intensifying the natural greenhouse effect. The burning of
+fossil fuels for energy significantly contributes to this increase.'
+}
+"""
+
 rag_bot = RagBot(retriever)
 
 # %%
@@ -769,7 +804,7 @@ def predict_rag_answer_with_context(example: dict):
     """Use this for evaluation of retrieved documents and hallucinations"""
     # bpdb.set_trace()
     response = rag_bot.get_answer(example["input_question"])
-    return {"answer": response["answer"], "contexts": response["contexts"]}
+    return {"answer": response["answer"], "context": response["context"]}
 
 # %% [markdown]
 # ## Evaluator[](https://docs.smith.langchain.com/tutorials/Developers/rag#evaluator)
@@ -920,404 +955,412 @@ except Exception as ex:
 # %%
 rich.print(runs)
 
-# # %% [markdown]
-# # # Response vs input
-# # Here is an example prompt that we can use:
-# #
-# # https://smith.langchain.com/hub/langchain-ai/rag-answer-helpfulness
-# #
-# # The information flow is similar to above, but we simply look at the run answer versus the example question.
+# %% [markdown]
+# # Response vs input
+# Here is an example prompt that we can use:
+#
+# https://smith.langchain.com/hub/langchain-ai/rag-answer-helpfulness
+#
+# The information flow is similar to above, but we simply look at the run answer versus the example question.
 
-# # %%
-# # Grade prompt
-# grade_prompt_answer_helpfulness = prompt = hub.pull("langchain-ai/rag-answer-helpfulness")
+# %%
+# Grade prompt
+grade_prompt_answer_helpfulness = prompt = hub.pull("langchain-ai/rag-answer-helpfulness")
 
-# def answer_helpfulness_evaluator(run, example) -> dict:
-#     """
-#     A simple evaluator for RAG answer helpfulness
-#     """
+def answer_helpfulness_evaluator(run, example) -> dict:
+    """
+    A simple evaluator for RAG answer helpfulness
+    """
 
-#     # Get question, ground truth answer, RAG chain answer
-#     question = example.inputs["question"]
-#     prediction = run.outputs["output_answer"]
+    # Get question, ground truth answer, RAG chain answer
+    input_question = example.inputs["input_question"]
+    prediction = run.outputs["answer"]
 
-#     # LLM grader
-#     llm = ChatOpenAI(model=LLM_MODEL_NAME, temperature=0, max_tokens=MAX_TOKENS, name="ChatOpenAI-rag-answer-helpfulness", max_retries=MAX_RETRIES)
+    # LLM grader
+    llm = ChatOpenAI(model=LLM_MODEL_NAME, temperature=0, max_tokens=MAX_TOKENS, name="ChatOpenAI-rag-answer-helpfulness", max_retries=MAX_RETRIES)
 
 
-#     # Structured prompt
-#     answer_grader = grade_prompt_answer_helpfulness | llm
+    # Structured prompt
+    answer_grader = grade_prompt_answer_helpfulness | llm
 
-#     # Run evaluator
-#     score = answer_grader.invoke({"question": question,
-#                                   "student_answer": prediction})
-#     score = score["Score"]
+    # Run evaluator
+    score = answer_grader.invoke({"question": input_question,
+                                  "student_answer": prediction})
+    score = score["Score"]
 
-#     return {"key": "answer_helpfulness_score", "score": score}
+    return {"key": "answer_helpfulness_score", "score": score}
 
-# # %%
-# with warnings.catch_warnings():
-#     warnings.simplefilter("ignore")
-#     experiment_results = evaluate(
-#         predict_rag_answer,
-#         data=dataset_name,
-#         evaluators=[answer_helpfulness_evaluator],
-#         experiment_prefix="rag-answer-helpfulness",
-#         max_concurrency=4,
-#         metadata={
-#             "version": f"{DATASET_NAME}, {LLM_MODEL_NAME}",
-#             "langchain_version": version("langchain"),
-#             "langchain_community_version": version("langchain_community"),
-#             "langchain_core_version": version("langchain_core"),
-#             "langchain_openai_version": version("langchain_openai"),
-#             "langchain_text_splitters_version": version("langchain_text_splitters"),
-#             "langsmith_version": version("langsmith"),
-#             "pydantic_version": version("pydantic"),
-#             "pydantic_settings_version": version("pydantic_settings"),
-#             "llm_run_config": LLM_RUN_CONFIG,
-#         },
-#     )
+# %%
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore")
+    experiment_results = evaluate(
+        predict_rag_answer,
+        data=dataset_name,
+        evaluators=[answer_helpfulness_evaluator],
+        experiment_prefix="rag-answer-helpfulness",
+        max_concurrency=4,
+        metadata={
+            "version": f"{DATASET_NAME}, {LLM_MODEL_NAME}",
+            "langchain_version": version("langchain"),
+            "langchain_community_version": version("langchain_community"),
+            "langchain_core_version": version("langchain_core"),
+            "langchain_openai_version": version("langchain_openai"),
+            "langchain_text_splitters_version": version("langchain_text_splitters"),
+            "langsmith_version": version("langsmith"),
+            "pydantic_version": version("pydantic"),
+            "pydantic_settings_version": version("pydantic_settings"),
+            "llm_run_config": LLM_RUN_CONFIG,
+        },
+    )
 
-# # %% [markdown]
-# # ### **Response vs retrieved docs**[](https://docs.smith.langchain.com/tutorials/Developers/rag#response-vs-retrieved-docs)
-# #
-# # Here is an example prompt that we can use:
-# #
-# # https://smith.langchain.com/hub/langchain-ai/rag-answer-hallucination
-# #
-# # Here is the a video from our LangSmith evaluation series for reference:
-# #
-# # https://youtu.be/IlNglM9bKLw?feature=shared
+# %% [markdown]
+# ### **Response vs retrieved docs**[](https://docs.smith.langchain.com/tutorials/Developers/rag#response-vs-retrieved-docs)
+#
+# Here is an example prompt that we can use:
+#
+# https://smith.langchain.com/hub/langchain-ai/rag-answer-hallucination
+#
+# Here is the a video from our LangSmith evaluation series for reference:
+#
+# https://youtu.be/IlNglM9bKLw?feature=shared
 
-# # %%
-# # Prompt
-# grade_prompt_hallucinations = prompt = hub.pull("langchain-ai/rag-answer-hallucination")
+# %%
+# Prompt
+grade_prompt_hallucinations = prompt = hub.pull("langchain-ai/rag-answer-hallucination")
 
-# def answer_hallucination_evaluator(run, example) -> dict:
-#     """
-#     A simple evaluator for generation hallucination
-#     """
+def answer_hallucination_evaluator(run, example) -> dict:
+    """
+    A simple evaluator for generation hallucination
+    """
 
-#     # RAG inputs
-#     question = example.inputs["question"]
-#     contexts = run.outputs["contexts"]
+    # RAG inputs
+    input_question = example.inputs["input_question"]
+    context = run.outputs["context"]
 
-#     # RAG answer
-#     prediction = run.outputs["output_answer"]
+    # RAG answer
+    prediction = run.outputs["answer"]
 
-#     # LLM grader
-#     llm = ChatOpenAI(model=LLM_MODEL_NAME, temperature=0, max_tokens=MAX_TOKENS, name="ChatOpenAI-rag-answer-hallucination", max_retries=MAX_RETRIES)
+    # LLM grader
+    llm = ChatOpenAI(model=LLM_MODEL_NAME, temperature=0, max_tokens=MAX_TOKENS, name="ChatOpenAI-rag-answer-hallucination", max_retries=MAX_RETRIES)
 
-#     # Structured prompt
-#     answer_grader = grade_prompt_hallucinations | llm
+    # Structured prompt
+    answer_grader = grade_prompt_hallucinations | llm
 
-#     # Get score
-#     score = answer_grader.invoke({"documents": contexts,
-#                                   "student_answer": prediction})
-#     score = score["Score"]
+    # Get score
+    score = answer_grader.invoke({"documents": context,
+                                  "student_answer": prediction})
+    score = score["Score"]
 
-#     return {"key": "answer_hallucination", "score": score}
+    return {"key": "answer_hallucination", "score": score}
 
-# # %%
-# with warnings.catch_warnings():
-#     warnings.simplefilter("ignore")
-#     experiment_results = evaluate(
-#         predict_rag_answer_with_context,
-#         data=dataset_name,
-#         evaluators=[answer_hallucination_evaluator],
-#         experiment_prefix="rag-answer-hallucination",
-#         max_concurrency=4,
-#         metadata={
-#             "version": f"{DATASET_NAME}, {LLM_MODEL_NAME}",
-#             "langchain_version": version("langchain"),
-#             "langchain_community_version": version("langchain_community"),
-#             "langchain_core_version": version("langchain_core"),
-#             "langchain_openai_version": version("langchain_openai"),
-#             "langchain_text_splitters_version": version("langchain_text_splitters"),
-#             "langsmith_version": version("langsmith"),
-#             "pydantic_version": version("pydantic"),
-#             "pydantic_settings_version": version("pydantic_settings"),
-#             "llm_run_config": LLM_RUN_CONFIG,
-#         },
-#     )
+# %%
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore")
+    experiment_results = evaluate(
+        predict_rag_answer_with_context,
+        data=dataset_name,
+        evaluators=[answer_hallucination_evaluator],
+        experiment_prefix="rag-answer-hallucination",
+        max_concurrency=4,
+        metadata={
+            "version": f"{DATASET_NAME}, {LLM_MODEL_NAME}",
+            "langchain_version": version("langchain"),
+            "langchain_community_version": version("langchain_community"),
+            "langchain_core_version": version("langchain_core"),
+            "langchain_openai_version": version("langchain_openai"),
+            "langchain_text_splitters_version": version("langchain_text_splitters"),
+            "langsmith_version": version("langsmith"),
+            "pydantic_version": version("pydantic"),
+            "pydantic_settings_version": version("pydantic_settings"),
+            "llm_run_config": LLM_RUN_CONFIG,
+        },
+    )
 
-# # %% [markdown]
-# # ### **Retrieved docs vs input**[](https://docs.smith.langchain.com/tutorials/Developers/rag#retrieved-docs-vs-input)
-# #
-# # Here is an example prompt that we can use:
-# #
-# # https://smith.langchain.com/hub/langchain-ai/rag-document-relevance
-# #
-# # Here is the a video from our LangSmith evaluation series for reference:
-# #
-# # https://youtu.be/Fr_7HtHjcf0?feature=shared
+# %% [markdown]
+# ### **Retrieved docs vs input**[](https://docs.smith.langchain.com/tutorials/Developers/rag#retrieved-docs-vs-input)
+#
+# Here is an example prompt that we can use:
+#
+# https://smith.langchain.com/hub/langchain-ai/rag-document-relevance
+#
+# Here is the a video from our LangSmith evaluation series for reference:
+#
+# https://youtu.be/Fr_7HtHjcf0?feature=shared
 
-# # %%
-# # Grade prompt
-# grade_prompt_doc_relevance = hub.pull("langchain-ai/rag-document-relevance")
+# %%
+# Grade prompt
+grade_prompt_doc_relevance = hub.pull("langchain-ai/rag-document-relevance")
 
-# def docs_relevance_evaluator(run, example) -> dict:
-#     """
-#     A simple evaluator for document relevance
-#     """
+def docs_relevance_evaluator(run, example) -> dict:
+    """
+    A simple evaluator for document relevance
+    """
 
-#     # RAG inputs
-#     question = example.inputs["question"]
-#     contexts = run.outputs["contexts"]
+    # RAG inputs
+    input_question = example.inputs["input_question"]
+    context = run.outputs["context"]
 
-#     # LLM grader
-#     llm = ChatOpenAI(model=LLM_MODEL_NAME, temperature=0, max_tokens=MAX_TOKENS, name="ChatOpenAI-rag-document-relevance", max_retries=MAX_RETRIES)
+    # LLM grader
+    llm = ChatOpenAI(model=LLM_MODEL_NAME, temperature=0, max_tokens=MAX_TOKENS, name="ChatOpenAI-rag-document-relevance", max_retries=MAX_RETRIES)
 
-#     # Structured prompt
-#     answer_grader = grade_prompt_doc_relevance | llm
+    # Structured prompt
+    answer_grader = grade_prompt_doc_relevance | llm
 
-#     # Get score
-#     score = answer_grader.invoke({"question":question,
-#                                   "documents":contexts})
-#     score = score["Score"]
+    # Get score
+    score = answer_grader.invoke({"question":input_question,
+                                  "documents":context})
+    score = score["Score"]
 
-#     return {"key": "document_relevance", "score": score}
+    return {"key": "document_relevance", "score": score}
 
-# # %%
-# with warnings.catch_warnings():
-#     warnings.simplefilter("ignore")
-#     experiment_results = evaluate(
-#         predict_rag_answer_with_context,
-#         data=dataset_name,
-#         evaluators=[docs_relevance_evaluator],
-#         experiment_prefix="rag-doc-relevance",
-#         max_concurrency=4,
-#         metadata={
-#             "version": f"{DATASET_NAME}, {LLM_MODEL_NAME}",
-#             "langchain_version": version("langchain"),
-#             "langchain_community_version": version("langchain_community"),
-#             "langchain_core_version": version("langchain_core"),
-#             "langchain_openai_version": version("langchain_openai"),
-#             "langchain_text_splitters_version": version("langchain_text_splitters"),
-#             "langsmith_version": version("langsmith"),
-#             "pydantic_version": version("pydantic"),
-#             "pydantic_settings_version": version("pydantic_settings"),
-#             "llm_run_config": LLM_RUN_CONFIG,
-#         },
-#     )
+# %%
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore")
+    experiment_results = evaluate(
+        predict_rag_answer_with_context,
+        data=dataset_name,
+        evaluators=[docs_relevance_evaluator],
+        experiment_prefix="rag-doc-relevance",
+        max_concurrency=4,
+        metadata={
+            "version": f"{DATASET_NAME}, {LLM_MODEL_NAME}",
+            "langchain_version": version("langchain"),
+            "langchain_community_version": version("langchain_community"),
+            "langchain_core_version": version("langchain_core"),
+            "langchain_openai_version": version("langchain_openai"),
+            "langchain_text_splitters_version": version("langchain_text_splitters"),
+            "langsmith_version": version("langsmith"),
+            "pydantic_version": version("pydantic"),
+            "pydantic_settings_version": version("pydantic_settings"),
+            "llm_run_config": LLM_RUN_CONFIG,
+        },
+    )
 
-# # %% [markdown]
-# # ## Evaluating intermediate steps[](https://docs.smith.langchain.com/tutorials/Developers/rag#evaluating-intermediate-steps)
-# #
-# # Above, we returned the retrieved documents as part of the final answer.
-# #
-# # However, we will show that this is not required.
-# #
-# # We can isolate them as intermediate chain steps.
-# #
-# # See detail on isolating intermediate chain steps [here](https://docs.smith.langchain.com/how_to_guides/evaluation/evaluate_on_intermediate_steps).
-# #
-# # Here is the a video from our LangSmith evaluation series for reference:
-# #
-# # https://youtu.be/yx3JMAaNggQ?feature=shared
+# %% [markdown]
+# ## Evaluating intermediate steps[](https://docs.smith.langchain.com/tutorials/Developers/rag#evaluating-intermediate-steps)
+#
+# Above, we returned the retrieved documents as part of the final answer.
+#
+# However, we will show that this is not required.
+#
+# We can isolate them as intermediate chain steps.
+#
+# See detail on isolating intermediate chain steps [here](https://docs.smith.langchain.com/how_to_guides/evaluation/evaluate_on_intermediate_steps).
+#
+# Here is the a video from our LangSmith evaluation series for reference:
+#
+# https://youtu.be/yx3JMAaNggQ?feature=shared
 
-# # %%
+# %%
+from langsmith.evaluation import evaluate
+from langsmith.schemas import Example, Run
+
+
+def document_relevance_grader(root_run: Run, example: Example) -> dict:
+    """
+    A simple evaluator that checks to see if retrieved documents are relevant to the question
+    """
+    # bpdb.set_trace()
+    # Get specific steps in our RAG pipeline, which are noted with @traceable decorator
+    rag_pipeline_run = next(
+        run for run in root_run.child_runs if run.name == "get_answer"
+    )
+    # DISABLED: # retrieve_run = next(
+    # DISABLED: #     run for run in rag_pipeline_run.child_runs if run.name == "retrieve_docs"
+    # DISABLED: # )
+    # retrieve_run = next(
+    #     run for run in rag_pipeline_run.child_runs if run.name == "Retriever"
+    # )
+    context = "\n\n".join(doc.page_content for doc in rag_pipeline_run.outputs["context"])
+    input_question = example.inputs["input_question"]
+
+    # LLM grader
+    llm = ChatOpenAI(model=LLM_MODEL_NAME, temperature=0, max_tokens=MAX_TOKENS, name="ChatOpenAI-rag-document-relevance", max_retries=MAX_RETRIES)
+
+    # Structured prompt
+    answer_grader = grade_prompt_doc_relevance | llm
+
+    # Get score
+    score = answer_grader.invoke({"question":input_question,
+                                  "documents":context})
+    score = score["Score"]
+
+    return {"key": "document_relevance", "score": score}
+
+def answer_hallucination_grader(root_run: Run, example: Example) -> dict:
+    """
+    A simple evaluator that checks to see the answer is grounded in the documents
+    """
+    # bpdb.set_trace()
+
+    # RAG input
+    rag_pipeline_run = next(
+        run for run in root_run.child_runs if run.name == "get_answer"
+    )
+    # DISABLED: # retrieve_run = next(
+    # DISABLED: #     run for run in rag_pipeline_run.child_runs if run.name == "retrieve_docs"
+    # DISABLED: # )
+    # retrieve_run = next(
+    #     run for run in rag_pipeline_run.child_runs if run.name == "Retriever"
+    # )
+    # context = "\n\n".join(doc.page_content for doc in retrieve_run.outputs["output"])
+    context = "\n\n".join(doc.page_content for doc in rag_pipeline_run.outputs["context"])
+
+    # RAG output
+    prediction = rag_pipeline_run.outputs["answer"]
+
+    # LLM grader
+    llm = ChatOpenAI(model=LLM_MODEL_NAME, temperature=0, max_tokens=MAX_TOKENS, name="ChatOpenAI-rag-answer-hallucination", max_retries=MAX_RETRIES)
+
+    # Structured prompt
+    answer_grader = grade_prompt_hallucinations | llm
+
+    # Get score
+    score = answer_grader.invoke({"documents": context,
+                                  "student_answer": prediction})
+    score = score["Score"]
+
+    return {"key": "answer_hallucination", "score": score}
+
+
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore")
+    experiment_results = evaluate(
+        predict_rag_answer,
+        data=dataset_name,
+        evaluators=[document_relevance_grader, answer_hallucination_grader],
+        max_concurrency=4,
+        metadata={
+            "version": f"{DATASET_NAME}, {LLM_MODEL_NAME}",
+            "langchain_version": version("langchain"),
+            "langchain_community_version": version("langchain_community"),
+            "langchain_core_version": version("langchain_core"),
+            "langchain_openai_version": version("langchain_openai"),
+            "langchain_text_splitters_version": version("langchain_text_splitters"),
+            "langsmith_version": version("langsmith"),
+            "pydantic_version": version("pydantic"),
+            "pydantic_settings_version": version("pydantic_settings"),
+            "llm_run_config": LLM_RUN_CONFIG,
+        },
+    )
+
+# %% [markdown]
+# -------------------------
+
+# %% [markdown]
+# # Evalute w/ Langsmith
+#
+# ## Define metrics
+#
+# After creating our dataset, we can now define some metrics to evaluate our responses on. Since we have an expected answer, we can compare to that as part of our evaluation. However, we do not expect our application to output those exact answers, but rather something that is similar. This makes our evaluation a little trickier.
+#
+# In addition to evaluating correctness, let's also make sure our answers are short and concise. This will be a little easier - we can define a simple Python function to measure the length of the response.
+#
+# Let's go ahead and define these two metrics.
+#
+# For the first, we will use an LLM to judge whether the output is correct (with respect to the expected output). This LLM-as-a-judge is relatively common for cases that are too complex to measure with a simple function. We can define our own prompt and LLM to use for evaluation here:
+
+# %%
+# # SOURCE: https://docs.smith.langchain.com/tutorials/Developers/evaluation
+
+# from langchain_anthropic import ChatAnthropic
+# from langchain_core.prompts.prompt import PromptTemplate
+# from langsmith.evaluation import LangChainStringEvaluator
+
+# dataset_name = "Climate Change Q&A"
+
+
+# # # Storing inputs in a dataset lets us
+# # # run chains and LLMs over a shared set of examples.
+# # dataset = client.create_dataset(
+# #     dataset_name=dataset_name,
+# #     description="Questions and answers about climate change.",
+# # )
+# # for input_prompt, output_answer in example_inputs:
+# #     client.create_example(
+# #         inputs={"question": input_prompt},
+# #         outputs={"answer": output_answer},
+# #         metadata={"source": "Various"},
+# #         dataset_id=dataset.id,
+# #     )
+
+# _PROMPT_TEMPLATE = """You are an expert professor specialized in grading students' answers to questions.
+# You are grading the following question:
+# {query}
+# Here is the real answer:
+# {answer}
+# You are grading the following predicted answer:
+# {result}
+# Respond with CORRECT or INCORRECT:
+# Grade:
+# """
+
+# PROMPT = PromptTemplate(
+#     input_variables=["query", "answer", "result"], template=_PROMPT_TEMPLATE
+# )
+# eval_llm = ChatAnthropic(temperature=0.0)
+
+# qa_evaluator = LangChainStringEvaluator("qa", config={"llm": eval_llm, "prompt": PROMPT})
+
+# %% [markdown]
+# For evaluating the length of the response, this is a lot easier! We can just define a simple function that checks whether the actual output is less than 2x the length of the expected result.
+
+# %%
+# from langsmith.schemas import Run, Example
+
+# def evaluate_length(run: Run, example: Example) -> dict:
+#     prediction = run.outputs.get("output") or ""
+#     required = example.outputs.get("answer") or ""
+#     score = int(len(prediction) < 2 * len(required))
+#     return {"key":"length", "score": score}
+
+# %% [markdown]
+# # Run Evaluations
+#
+# Great! So now how do we run evaluations? Now that we have a dataset and evaluators, all that we need is our application! We will build a simple application that just has a system message with instructions on how to respond and then passes it to the LLM. We will build this using the OpenAI SDK directly:
+
+# %%
+# # my app
+
+# import openai
+
+# openai_client = openai.Client()
+
+# def my_app(question: str):
+#     return openai_client.chat.completions.create(
+#         model="gpt-3.5-turbo",
+#         temperature=0,
+#         messages=[
+#             {
+#                 "role": "system",
+#                 "content": "Respond to the users question in a short, concise manner (one short sentence)."
+#             },
+#             {
+#                 "role": "user",
+#                 "content": question,
+#             }
+#         ],
+#     ).choices[0].message.content
+
+# %% [markdown]
+# Before running this through LangSmith evaluations, we need to define a simple wrapper that maps the input keys from our dataset to the function we want to call, and then also maps the output of the function to the output key we expect.
+#
+#
+
+# %%
+# def langsmith_app(inputs):
+#     output = my_app(inputs["question"])
+#     return {"output": output}
+
+# %% [markdown]
+# Great! Now we're ready to run evaluation. Let's do it!
+
+# %%
 # from langsmith.evaluation import evaluate
-# from langsmith.schemas import Example, Run
 
-
-# def document_relevance_grader(root_run: Run, example: Example) -> dict:
-#     """
-#     A simple evaluator that checks to see if retrieved documents are relevant to the question
-#     """
-
-#     # Get specific steps in our RAG pipeline, which are noted with @traceable decorator
-#     rag_pipeline_run = next(
-#         run for run in root_run.child_runs if run.name == "get_answer"
-#     )
-#     retrieve_run = next(
-#         run for run in rag_pipeline_run.child_runs if run.name == "retrieve_docs"
-#     )
-#     contexts = "\n\n".join(doc.page_content for doc in retrieve_run.outputs["output"])
-#     question = example.inputs["question"]
-
-#     # LLM grader
-#     llm = ChatOpenAI(model=LLM_MODEL_NAME, temperature=0, max_tokens=MAX_TOKENS, name="ChatOpenAI-rag-document-relevance", max_retries=MAX_RETRIES)
-
-#     # Structured prompt
-#     answer_grader = grade_prompt_doc_relevance | llm
-
-#     # Get score
-#     score = answer_grader.invoke({"question":question,
-#                                   "documents":contexts})
-#     score = score["Score"]
-
-#     return {"key": "document_relevance", "score": score}
-
-# def answer_hallucination_grader(root_run: Run, example: Example) -> dict:
-#     """
-#     A simple evaluator that checks to see the answer is grounded in the documents
-#     """
-
-#     # RAG input
-#     rag_pipeline_run = next(
-#         run for run in root_run.child_runs if run.name == "get_answer"
-#     )
-#     retrieve_run = next(
-#         run for run in rag_pipeline_run.child_runs if run.name == "retrieve_docs"
-#     )
-#     contexts = "\n\n".join(doc.page_content for doc in retrieve_run.outputs["output"])
-
-#     # RAG output
-#     prediction = rag_pipeline_run.outputs["answer"]
-
-#     # LLM grader
-#     llm = ChatOpenAI(model=LLM_MODEL_NAME, temperature=0, max_tokens=MAX_TOKENS, name="ChatOpenAI-rag-answer-hallucination", max_retries=MAX_RETRIES)
-
-#     # Structured prompt
-#     answer_grader = grade_prompt_hallucinations | llm
-
-#     # Get score
-#     score = answer_grader.invoke({"documents": contexts,
-#                                   "student_answer": prediction})
-#     score = score["Score"]
-
-#     return {"key": "answer_hallucination", "score": score}
-
-
-# with warnings.catch_warnings():
-#     warnings.simplefilter("ignore")
-#     experiment_results = evaluate(
-#         predict_rag_answer,
-#         data=dataset_name,
-#         evaluators=[document_relevance_grader, answer_hallucination_grader],
-#         max_concurrency=4,
-#         metadata={
-#             "version": f"{DATASET_NAME}, {LLM_MODEL_NAME}",
-#             "langchain_version": version("langchain"),
-#             "langchain_community_version": version("langchain_community"),
-#             "langchain_core_version": version("langchain_core"),
-#             "langchain_openai_version": version("langchain_openai"),
-#             "langchain_text_splitters_version": version("langchain_text_splitters"),
-#             "langsmith_version": version("langsmith"),
-#             "pydantic_version": version("pydantic"),
-#             "pydantic_settings_version": version("pydantic_settings"),
-#             "llm_run_config": LLM_RUN_CONFIG,
-#         },
-#     )
-
-# # %% [markdown]
-# # -------------------------
-
-# # %% [markdown]
-# # # Evalute w/ Langsmith
-# #
-# # ## Define metrics
-# #
-# # After creating our dataset, we can now define some metrics to evaluate our responses on. Since we have an expected answer, we can compare to that as part of our evaluation. However, we do not expect our application to output those exact answers, but rather something that is similar. This makes our evaluation a little trickier.
-# #
-# # In addition to evaluating correctness, let's also make sure our answers are short and concise. This will be a little easier - we can define a simple Python function to measure the length of the response.
-# #
-# # Let's go ahead and define these two metrics.
-# #
-# # For the first, we will use an LLM to judge whether the output is correct (with respect to the expected output). This LLM-as-a-judge is relatively common for cases that are too complex to measure with a simple function. We can define our own prompt and LLM to use for evaluation here:
-
-# # %%
-# # # SOURCE: https://docs.smith.langchain.com/tutorials/Developers/evaluation
-
-# # from langchain_anthropic import ChatAnthropic
-# # from langchain_core.prompts.prompt import PromptTemplate
-# # from langsmith.evaluation import LangChainStringEvaluator
-
-# # dataset_name = "Climate Change Q&A"
-
-
-# # # # Storing inputs in a dataset lets us
-# # # # run chains and LLMs over a shared set of examples.
-# # # dataset = client.create_dataset(
-# # #     dataset_name=dataset_name,
-# # #     description="Questions and answers about climate change.",
-# # # )
-# # # for input_prompt, output_answer in example_inputs:
-# # #     client.create_example(
-# # #         inputs={"question": input_prompt},
-# # #         outputs={"answer": output_answer},
-# # #         metadata={"source": "Various"},
-# # #         dataset_id=dataset.id,
-# # #     )
-
-# # _PROMPT_TEMPLATE = """You are an expert professor specialized in grading students' answers to questions.
-# # You are grading the following question:
-# # {query}
-# # Here is the real answer:
-# # {answer}
-# # You are grading the following predicted answer:
-# # {result}
-# # Respond with CORRECT or INCORRECT:
-# # Grade:
-# # """
-
-# # PROMPT = PromptTemplate(
-# #     input_variables=["query", "answer", "result"], template=_PROMPT_TEMPLATE
-# # )
-# # eval_llm = ChatAnthropic(temperature=0.0)
-
-# # qa_evaluator = LangChainStringEvaluator("qa", config={"llm": eval_llm, "prompt": PROMPT})
-
-# # %% [markdown]
-# # For evaluating the length of the response, this is a lot easier! We can just define a simple function that checks whether the actual output is less than 2x the length of the expected result.
-
-# # %%
-# # from langsmith.schemas import Run, Example
-
-# # def evaluate_length(run: Run, example: Example) -> dict:
-# #     prediction = run.outputs.get("output") or ""
-# #     required = example.outputs.get("answer") or ""
-# #     score = int(len(prediction) < 2 * len(required))
-# #     return {"key":"length", "score": score}
-
-# # %% [markdown]
-# # # Run Evaluations
-# #
-# # Great! So now how do we run evaluations? Now that we have a dataset and evaluators, all that we need is our application! We will build a simple application that just has a system message with instructions on how to respond and then passes it to the LLM. We will build this using the OpenAI SDK directly:
-
-# # %%
-# # # my app
-
-# # import openai
-
-# # openai_client = openai.Client()
-
-# # def my_app(question: str):
-# #     return openai_client.chat.completions.create(
-# #         model="gpt-3.5-turbo",
-# #         temperature=0,
-# #         messages=[
-# #             {
-# #                 "role": "system",
-# #                 "content": "Respond to the users question in a short, concise manner (one short sentence)."
-# #             },
-# #             {
-# #                 "role": "user",
-# #                 "content": question,
-# #             }
-# #         ],
-# #     ).choices[0].message.content
-
-# # %% [markdown]
-# # Before running this through LangSmith evaluations, we need to define a simple wrapper that maps the input keys from our dataset to the function we want to call, and then also maps the output of the function to the output key we expect.
-# #
-# #
-
-# # %%
-# # def langsmith_app(inputs):
-# #     output = my_app(inputs["question"])
-# #     return {"output": output}
-
-# # %% [markdown]
-# # Great! Now we're ready to run evaluation. Let's do it!
-
-# # %%
-# # from langsmith.evaluation import evaluate
-
-# # experiment_results = evaluate(
-# #     langsmith_app, # Your AI system
-# #     data=dataset_name, # The data to predict and grade over
-# #     evaluators=[evaluate_length, qa_evaluator], # The evaluators to score the results
-# #     experiment_prefix="openai-3.5", # A prefix for your experiment names to easily identify them
-# # )
+# experiment_results = evaluate(
+#     langsmith_app, # Your AI system
+#     data=dataset_name, # The data to predict and grade over
+#     evaluators=[evaluate_length, qa_evaluator], # The evaluators to score the results
+#     experiment_prefix="openai-3.5", # A prefix for your experiment names to easily identify them
+# )
