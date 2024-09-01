@@ -1126,11 +1126,15 @@ def predict_rag_answer_claude_3_haiku(example: dict):
 
 # define evaluator
 
-criteria_evaluator = LangChainStringEvaluator(
-    "criteria",
+# The "labeled_score_string" evaluator instructs an LLM to assess the prediction against a reference label on a specified scale
+# SOURCE: https://docs.smith.langchain.com/how_to_guides/evaluation/use_langchain_off_the_shelf_evaluators
+regression_accuracy_criteria_evaluator = LangChainStringEvaluator(
+    "labeled_score_string",
     config={
         "criteria": {
             "accuracy": "Is the Assistant's Answer grounded in and similar to the Ground Truth answer? A score of [[1]] means that the Assistant answer is not at all grounded in and similar to the Ground Truth answer. A score of [[5]] means  that the Assistant  answer contains some information that is grounded in and similar to the Ground Truth answer. A score of [[10]] means that the Assistant answer is fully grounded in and similar to the Ground Truth answer.",
+            # NOTE: This is an alternative below
+            # "accuracy": "How accurate is this prediction compared to the reference on a scale of 1-10?"
         },
         # If you want the score to be saved on a scale from 0 to 1
         "normalize_by": 10,
@@ -1145,7 +1149,7 @@ with warnings.catch_warnings():
     experiment_results = evaluate(
         predict_rag_answer_openai_gpt4o_mini,
         data=dataset_name,
-        evaluators=[criteria_evaluator],
+        evaluators=[regression_accuracy_criteria_evaluator],
         experiment_prefix="rag-regression-testing-gpt4o-mini",
         max_concurrency=EVAL_MAX_CONCURRENCY,
         metadata={
@@ -1168,7 +1172,7 @@ with warnings.catch_warnings():
     experiment_results = evaluate(
         predict_rag_answer_claude_3_5_sonnet,
         data=dataset_name,
-        evaluators=[criteria_evaluator],
+        evaluators=[regression_accuracy_criteria_evaluator],
         experiment_prefix="rag-regression-testing-claude-3-5-sonnet",
         max_concurrency=EVAL_MAX_CONCURRENCY,
         metadata={
@@ -1191,7 +1195,7 @@ with warnings.catch_warnings():
     experiment_results = evaluate(
         predict_rag_answer_claude_3_opus,
         data=dataset_name,
-        evaluators=[criteria_evaluator],
+        evaluators=[regression_accuracy_criteria_evaluator],
         experiment_prefix="rag-regression-testing-claude-3-5-sonnet",
         max_concurrency=EVAL_MAX_CONCURRENCY,
         metadata={
@@ -1214,7 +1218,7 @@ with warnings.catch_warnings():
     experiment_results = evaluate(
         predict_rag_answer_claude_3_haiku,
         data=dataset_name,
-        evaluators=[criteria_evaluator],
+        evaluators=[regression_accuracy_criteria_evaluator],
         experiment_prefix="rag-regression-testing-claude-3-5-sonnet",
         max_concurrency=EVAL_MAX_CONCURRENCY,
         metadata={
@@ -1235,6 +1239,95 @@ with warnings.catch_warnings():
 #     rag_bot = RagBot(retriever,provider="ollama",model="phi3")
 #     response = rag_bot.get_answer(example["input_question"])
 #     return {"answer": response["answer"]}
+
+# -------------------------
+# Helpfulness Testing
+# -------------------------
+# The "labeled_criteria" evaluator instructs an LLM to assess if a prediction satisfies the criteria, taking into account the reference label
+# SOURCE: https://docs.smith.langchain.com/how_to_guides/evaluation/use_langchain_off_the_shelf_evaluators
+helpfulness_labeled_criteria_evaluator = LangChainStringEvaluator(
+    "labeled_criteria",
+    config={
+        "criteria": {
+            "helpfulness": (
+                "Is this submission helpful to the user,"
+                " taking into account the correct reference answer?"
+            )
+        }
+    }
+)
+
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore")
+    print_panel("rag-helpfulness-testing")
+    experiment_results = evaluate(
+        predict_rag_answer,
+        data=dataset_name,
+        evaluators=[helpfulness_labeled_criteria_evaluator],
+        experiment_prefix="rag-helpfulness-testing",
+        max_concurrency=EVAL_MAX_CONCURRENCY,
+        metadata={
+            "version": f"{DATASET_NAME}, {LLM_MODEL_NAME}",
+            "langchain_version": version("langchain"),
+            "langchain_community_version": version("langchain_community"),
+            "langchain_core_version": version("langchain_core"),
+            "langchain_openai_version": version("langchain_openai"),
+            "langchain_text_splitters_version": version("langchain_text_splitters"),
+            "langsmith_version": version("langsmith"),
+            "pydantic_version": version("pydantic"),
+            "pydantic_settings_version": version("pydantic_settings"),
+            "llm_run_config": LLM_RUN_CONFIG,
+        },
+    )
+
+# -------------------------
+# Use string or embedding distance metrics
+# -------------------------
+
+string_distance_evaluator = LangChainStringEvaluator(
+    "string_distance",
+    config={"distance": "levenshtein", "normalize_score": True}
+)
+
+embedding_distance_evaluator = LangChainStringEvaluator(
+    "embedding_distance",
+    config={
+      # Defaults to OpenAI, but you can customize which embedding provider to use:
+      # "embeddings": HuggingFaceEmbeddings(model="distilbert-base-uncased"),
+      # Can also choose "euclidean", "chebyshev", "hamming", and "manhattan"
+        "distance_metric": "cosine",
+      }
+)
+
+
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore")
+    print_panel("rag-string-embedding-distance-metrics-testing")
+    experiment_results = evaluate(
+        predict_rag_answer,
+        data=dataset_name,
+        evaluators=[string_distance_evaluator, embedding_distance_evaluator],
+        experiment_prefix="rag-string-embedding-distance-metrics-testing",
+        max_concurrency=EVAL_MAX_CONCURRENCY,
+        metadata={
+            "version": f"{DATASET_NAME}, {LLM_MODEL_NAME}",
+            "langchain_version": version("langchain"),
+            "langchain_community_version": version("langchain_community"),
+            "langchain_core_version": version("langchain_core"),
+            "langchain_openai_version": version("langchain_openai"),
+            "langchain_text_splitters_version": version("langchain_text_splitters"),
+            "langsmith_version": version("langsmith"),
+            "pydantic_version": version("pydantic"),
+            "pydantic_settings_version": version("pydantic_settings"),
+            "llm_run_config": LLM_RUN_CONFIG,
+        },
+    )
+# To measure the similarity between a predicted string and a reference, you can use string distance metrics:
+
+# The "string_distance" evaluator computes a normalized string edit distance between the prediction and reference
+# The "embedding_distance" evaluator computes the distance between the text embeddings of the prediction and reference
+
+
 # -------------------------
 # Pairwise Testing
 # -------------------------
