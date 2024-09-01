@@ -110,6 +110,8 @@ def filter_out_serialization_errors(record):
         r"Orjson serialization failed:",
         r"Failed to serialize .* to JSON:",
         r"Object of type .* is not JSON serializable",
+        # Failed to deepcopy input: TypeError("cannot pickle '_thread.RLock' object") | {}
+        r".*Failed to deepcopy input:.*",
     ]
 
     # Check if the log message matches any of the patterns
