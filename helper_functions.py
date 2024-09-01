@@ -50,35 +50,35 @@ def text_wrap(text, width=120):
     return textwrap.fill(text, width=width)
 
 
-def encode_pdf(path, chunk_size=1000, chunk_overlap=200):
-    """
-    Encodes a PDF book into a vector store using OpenAI embeddings.
+# def encode_pdf(path, chunk_size=1000, chunk_overlap=200):
+#     """
+#     Encodes a PDF book into a vector store using OpenAI embeddings.
 
-    Args:
-        path: The path to the PDF file.
-        chunk_size: The desired size of each text chunk.
-        chunk_overlap: The amount of overlap between consecutive chunks.
+#     Args:
+#         path: The path to the PDF file.
+#         chunk_size: The desired size of each text chunk.
+#         chunk_overlap: The amount of overlap between consecutive chunks.
 
-    Returns:
-        A FAISS vector store containing the encoded book content.
-    """
+#     Returns:
+#         A FAISS vector store containing the encoded book content.
+#     """
 
-    # Load PDF documents
-    loader = PyPDFLoader(path)
-    documents = loader.load()
+#     # Load PDF documents
+#     loader = PyPDFLoader(path)
+#     documents = loader.load()
 
-    # Split documents into chunks
-    text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=chunk_size, chunk_overlap=chunk_overlap, length_function=len
-    )
-    texts = text_splitter.split_documents(documents)
-    cleaned_texts = replace_t_with_space(texts)
+#     # Split documents into chunks
+#     text_splitter = RecursiveCharacterTextSplitter(
+#         chunk_size=chunk_size, chunk_overlap=chunk_overlap, length_function=len
+#     )
+#     texts = text_splitter.split_documents(documents)
+#     cleaned_texts = replace_t_with_space(texts)
 
-    # Create embeddings and vector store
-    embeddings = OpenAIEmbeddings()
-    vectorstore = FAISS.from_documents(cleaned_texts, embeddings)
+#     # Create embeddings and vector store
+#     embeddings = OpenAIEmbeddings()
+#     vectorstore = FAISS.from_documents(cleaned_texts, embeddings)
 
-    return vectorstore
+#     return vectorstore
 
 
 def encode_from_string(content, chunk_size=1000, chunk_overlap=200):
