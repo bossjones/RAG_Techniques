@@ -18,7 +18,7 @@ import json
 
 from typing import List, Tuple
 
-from deepeval import evaluate
+from deepeval import evaluate as deepeval_evaluate
 from deepeval.metrics import ContextualRelevancyMetric, FaithfulnessMetric, GEval
 from deepeval.test_case import LLMTestCase, LLMTestCaseParams
 from langchain_openai import ChatOpenAI
@@ -116,7 +116,7 @@ def evaluate_rag(chunks_query_retriever, num_questions: int = 5) -> None:
 
     # Create test cases and evaluate
     test_cases = create_deep_eval_test_cases(questions, ground_truth_answers, generated_answers, retrieved_documents)
-    evaluate(
+    deepeval_evaluate(
         test_cases=test_cases,
         metrics=[correctness_metric, faithfulness_metric, relevance_metric]
     )

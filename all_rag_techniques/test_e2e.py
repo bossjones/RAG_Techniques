@@ -77,6 +77,7 @@ from loguru import logger as LOGGER
 from loguru._defaults import LOGURU_FORMAT
 from openai import OpenAI
 from openai.types.chat.chat_completion import ChatCompletion
+from rich.panel import Panel
 
 from evaluation.evalute_rag import *
 from helper_functions import *
@@ -342,6 +343,8 @@ rich.print(COMPLETION_COST_PER_TOKEN)
 EMBEDDING_MAX_TOKENS: int = EMBEDDING_MODEL_DIMENSIONS_DATA[LLM_EMBEDDING_MODEL_NAME]
 EMBEDDING_MODEL_DIMENSIONS: int = EMBEDDING_MODEL_DIMENSIONS_DATA[LLM_EMBEDDING_MODEL_NAME]
 
+COMPARE_MODELS_FEATURE_FLAG = False
+
 
 def get_model_config(model_name: str = LLM_MODEL_NAME, embedding_model_name: str = LLM_EMBEDDING_MODEL_NAME):
     return {
@@ -469,11 +472,13 @@ class RagBot:
         elif self._provider == "anthropic":
             self._llm = ChatAnthropic(
                 name="ChatAnthropic",
-                streaming=True,
+                # streaming=True,
                 model=self._model,
                 max_retries=9,
                 temperature=0.0,
             )
+        LOGGER.info(f"\n\nRagBot initialized with model: {self._model}, provider: {self._provider}, retriever: {self._retriever} and llm: {self._llm}\n\n")
+        print_model_announcment(self._model, self._provider, self._retriever, self._llm)
 
     @traceable()
     def execute_chain(self, question: str):
@@ -640,7 +645,7 @@ class RagBot:
                 answer=rag_chain_from_docs
             )
 
-            chain.get_graph().print_ascii()
+            # chain.get_graph().print_ascii()
 
         return chain
 
@@ -732,7 +737,11 @@ grade_prompt_answer_accuracy = prompt = hub.pull("langchain-ai/rag-answer-vs-ref
 
 def answer_evaluator(run: Run, example: Example) -> dict:
     """
-    A simple evaluator for RAG answer accuracy
+    A simple evaluator for RAG answer accuracy.
+
+    Answer correctness.
+
+    "Is the answer consistent with a reference answer?"
     """
     # bpdb.set_trace()
     examples.append(example)
@@ -763,7 +772,7 @@ def answer_evaluator(run: Run, example: Example) -> dict:
 # - `predict_rag_answer`: Takes an `example` from our eval set, extracts the question, passes to our RAG chain
 # - `answer_evaluator`: Passes RAG chain answer, question, and ground truth answer to an evaluator
 # from rich.console import Console
-from rich.panel import Panel
+
 
 
 def print_markdown(text: str):
@@ -774,6 +783,14 @@ def print_markdown(text: str):
 
 def print_panel(text: str):
     update_text = f"[green]{text}"
+    console = Console()
+    panel_contents = Panel(update_text)
+    console.print()
+    console.print(panel_contents)
+    console.print()
+
+def print_model_announcment(model, provider, retriever, llm):
+    update_text = f"\n\n[green]RagBot initialized with model:[/green] [yellow]{model}[/yellow]\n[green]provider:[/green] [yellow]{provider}[/yellow]\n[green]retriever:[/green] [yellow]{retriever}[/yellow]\n[green]llm:[/green] [yellow]{llm}[/yellow]\n\n"
     console = Console()
     panel_contents = Panel(update_text)
     console.print()
@@ -817,7 +834,7 @@ except Exception as ex:
     traceback.print_tb(exc_traceback)
     bpdb.pm()
 
-rich.print(runs)
+# rich.print(runs)
 
 
 # # Response vs input
@@ -833,7 +850,9 @@ grade_prompt_answer_helpfulness = prompt = hub.pull("langchain-ai/rag-answer-hel
 
 def answer_helpfulness_evaluator(run, example) -> dict:
     """
-    A simple evaluator for RAG answer helpfulness
+    A simple evaluator for RAG answer helpfulness.
+
+    "Does the answer help address the question?"
     """
 
     # Get question, ground truth answer, RAG chain answer
@@ -895,7 +914,11 @@ grade_prompt_hallucinations = prompt = hub.pull("langchain-ai/rag-answer-halluci
 
 def answer_hallucination_evaluator(run, example) -> dict:
     """
-    A simple evaluator for generation hallucination
+    A simple evaluator for generation hallucination.
+
+    Answer faithfulness.
+
+    "Is the answer grounded in the documents?"
     """
 
     # RAG inputs
@@ -960,6 +983,9 @@ grade_prompt_doc_relevance = hub.pull("langchain-ai/rag-document-relevance")
 def docs_relevance_evaluator(run, example) -> dict:
     """
     A simple evaluator for document relevance
+
+
+    "Are the documents relevant to the question?"
     """
 
     # RAG inputs
@@ -1114,185 +1140,192 @@ with warnings.catch_warnings():
     )
 
 
-# -------------------------
-# Regression Testing
-# SOURCE: https://docs.smith.langchain.com/old/evaluation/faq/regression-testing
-# -------------------------
-def predict_rag_answer_openai_gpt4o_mini(example: dict):
-    """Use this for answer evaluation"""
-    gpt4o_mini_rag_bot = RagBot(retriever,provider="openai",model="gpt-4o-mini")
-    response = gpt4o_mini_rag_bot.get_answer(example["input_question"])
-    return {"answer": response["answer"]}
 
-def predict_rag_answer_claude_3_5_sonnet(example: dict):
-    """Use this for answer evaluation"""
-    rag_bot = RagBot(retriever, provider="anthropic", model="claude-3-5-sonnet-20240620")
-    response = rag_bot.get_answer(example["input_question"])
-    return {"answer": response["answer"]}
+if COMPARE_MODELS_FEATURE_FLAG:
+    # -------------------------
+    # Regression Testing
+    # SOURCE: https://docs.smith.langchain.com/old/evaluation/faq/regression-testing
+    # -------------------------
+    def predict_rag_answer_openai_gpt4o_mini(example: dict):
+        """Use this for answer evaluation"""
+        gpt4o_mini_rag_bot = RagBot(retriever,provider="openai",model="gpt-4o-mini")
+        response = gpt4o_mini_rag_bot.get_answer(example["input_question"])
+        return {"answer": response["answer"]}
 
-def predict_rag_answer_claude_3_opus(example: dict):
-    """Use this for answer evaluation"""
-    rag_bot = RagBot(retriever, provider="anthropic", model="claude-3-opus-20240229")
-    response = rag_bot.get_answer(example["input_question"])
-    return {"answer": response["answer"]}
+    def predict_rag_answer_claude_3_5_sonnet(example: dict):
+        """Use this for answer evaluation"""
+        rag_bot = RagBot(retriever, provider="anthropic", model="claude-3-5-sonnet-20240620")
+        response = rag_bot.get_answer(example["input_question"])
+        return {"answer": response["answer"]}
 
-def predict_rag_answer_claude_3_haiku(example: dict):
-    """Use this for answer evaluation"""
-    rag_bot = RagBot(retriever, provider="anthropic", model="claude-3-haiku-20240307")
-    response = rag_bot.get_answer(example["input_question"])
-    return {"answer": response["answer"]}
+    def predict_rag_answer_claude_3_opus(example: dict):
+        """Use this for answer evaluation"""
+        rag_bot = RagBot(retriever, provider="anthropic", model="claude-3-opus-20240229")
+        response = rag_bot.get_answer(example["input_question"])
+        return {"answer": response["answer"]}
 
-# define evaluator
+    def predict_rag_answer_claude_3_haiku(example: dict):
+        """Use this for answer evaluation"""
+        rag_bot = RagBot(retriever, provider="anthropic", model="claude-3-haiku-20240307")
+        response = rag_bot.get_answer(example["input_question"])
+        return {"answer": response["answer"]}
 
-# The "labeled_score_string" evaluator instructs an LLM to assess the prediction against a reference label on a specified scale
-# SOURCE: https://docs.smith.langchain.com/how_to_guides/evaluation/use_langchain_off_the_shelf_evaluators
-regression_accuracy_criteria_evaluator = LangChainStringEvaluator(
-    "labeled_score_string",
-    config={
-        "criteria": {
-            "accuracy": "Is the Assistant's Answer grounded in and similar to the Ground Truth answer? A score of [[1]] means that the Assistant answer is not at all grounded in and similar to the Ground Truth answer. A score of [[5]] means  that the Assistant  answer contains some information that is grounded in and similar to the Ground Truth answer. A score of [[10]] means that the Assistant answer is fully grounded in and similar to the Ground Truth answer.",
-            # NOTE: This is an alternative below
-            # "accuracy": "How accurate is this prediction compared to the reference on a scale of 1-10?"
-        },
-        # If you want the score to be saved on a scale from 0 to 1
-        "normalize_by": 10,
-    }
-)
+    # define evaluator
 
-
-
-with warnings.catch_warnings():
-    warnings.simplefilter("ignore")
-    print_panel("rag-regression-testing-gpt4o-mini")
-    experiment_results = evaluate(
-        predict_rag_answer_openai_gpt4o_mini,
-        data=dataset_name,
-        evaluators=[regression_accuracy_criteria_evaluator],
-        experiment_prefix="rag-regression-testing-gpt4o-mini",
-        max_concurrency=EVAL_MAX_CONCURRENCY,
-        metadata={
-            "version": f"{DATASET_NAME}, {LLM_MODEL_NAME}",
-            "langchain_version": version("langchain"),
-            "langchain_community_version": version("langchain_community"),
-            "langchain_core_version": version("langchain_core"),
-            "langchain_openai_version": version("langchain_openai"),
-            "langchain_text_splitters_version": version("langchain_text_splitters"),
-            "langsmith_version": version("langsmith"),
-            "pydantic_version": version("pydantic"),
-            "pydantic_settings_version": version("pydantic_settings"),
-            "llm_run_config": LLM_RUN_CONFIG,
-        },
+    # The "labeled_score_string" evaluator instructs an LLM to assess the prediction against a reference label on a specified scale
+    # SOURCE: https://docs.smith.langchain.com/how_to_guides/evaluation/use_langchain_off_the_shelf_evaluators
+    regression_accuracy_criteria_evaluator = LangChainStringEvaluator(
+        "labeled_score_string",
+        config={
+            "criteria": {
+                "accuracy": "Is the Assistant's Answer grounded in and similar to the Ground Truth answer? A score of [[1]] means that the Assistant answer is not at all grounded in and similar to the Ground Truth answer. A score of [[5]] means  that the Assistant  answer contains some information that is grounded in and similar to the Ground Truth answer. A score of [[10]] means that the Assistant answer is fully grounded in and similar to the Ground Truth answer.",
+                # NOTE: This is an alternative below
+                # "accuracy": "How accurate is this prediction compared to the reference on a scale of 1-10?"
+            },
+            # If you want the score to be saved on a scale from 0 to 1
+            "normalize_by": 10,
+        }
     )
 
-with warnings.catch_warnings():
-    warnings.simplefilter("ignore")
-    print_panel("rag-regression-testing-claude-3-5-sonnet")
-    experiment_results = evaluate(
-        predict_rag_answer_claude_3_5_sonnet,
-        data=dataset_name,
-        evaluators=[regression_accuracy_criteria_evaluator],
-        experiment_prefix="rag-regression-testing-claude-3-5-sonnet",
-        max_concurrency=EVAL_MAX_CONCURRENCY,
-        metadata={
-            "version": f"{DATASET_NAME}, {LLM_MODEL_NAME}",
-            "langchain_version": version("langchain"),
-            "langchain_community_version": version("langchain_community"),
-            "langchain_core_version": version("langchain_core"),
-            "langchain_openai_version": version("langchain_openai"),
-            "langchain_text_splitters_version": version("langchain_text_splitters"),
-            "langsmith_version": version("langsmith"),
-            "pydantic_version": version("pydantic"),
-            "pydantic_settings_version": version("pydantic_settings"),
-            "llm_run_config": LLM_RUN_CONFIG,
-        },
-    )
-
-with warnings.catch_warnings():
-    warnings.simplefilter("ignore")
-    print_panel("rag-regression-testing-claude-3-opus")
-    experiment_results = evaluate(
-        predict_rag_answer_claude_3_opus,
-        data=dataset_name,
-        evaluators=[regression_accuracy_criteria_evaluator],
-        experiment_prefix="rag-regression-testing-claude-3-5-sonnet",
-        max_concurrency=EVAL_MAX_CONCURRENCY,
-        metadata={
-            "version": f"{DATASET_NAME}, {LLM_MODEL_NAME}",
-            "langchain_version": version("langchain"),
-            "langchain_community_version": version("langchain_community"),
-            "langchain_core_version": version("langchain_core"),
-            "langchain_openai_version": version("langchain_openai"),
-            "langchain_text_splitters_version": version("langchain_text_splitters"),
-            "langsmith_version": version("langsmith"),
-            "pydantic_version": version("pydantic"),
-            "pydantic_settings_version": version("pydantic_settings"),
-            "llm_run_config": LLM_RUN_CONFIG,
-        },
-    )
-
-with warnings.catch_warnings():
-    warnings.simplefilter("ignore")
-    print_panel("rag-regression-testing-claude-3-haiku")
-    experiment_results = evaluate(
-        predict_rag_answer_claude_3_haiku,
-        data=dataset_name,
-        evaluators=[regression_accuracy_criteria_evaluator],
-        experiment_prefix="rag-regression-testing-claude-3-5-sonnet",
-        max_concurrency=EVAL_MAX_CONCURRENCY,
-        metadata={
-            "version": f"{DATASET_NAME}, {LLM_MODEL_NAME}",
-            "langchain_version": version("langchain"),
-            "langchain_community_version": version("langchain_community"),
-            "langchain_core_version": version("langchain_core"),
-            "langchain_openai_version": version("langchain_openai"),
-            "langchain_text_splitters_version": version("langchain_text_splitters"),
-            "langsmith_version": version("langsmith"),
-            "pydantic_version": version("pydantic"),
-            "pydantic_settings_version": version("pydantic_settings"),
-            "llm_run_config": LLM_RUN_CONFIG,
-        },
-    )
-# def predict_rag_answer_phi3(example: dict):
-#     """Use this for answer evaluation"""
-#     rag_bot = RagBot(retriever,provider="ollama",model="phi3")
-#     response = rag_bot.get_answer(example["input_question"])
-#     return {"answer": response["answer"]}
 
 
-# TODO: https://docs.smith.langchain.com/how_to_guides/evaluation/evaluate_pairwise
-# Update the values below and uncomment the code to run
-# pairwise_evaluation_prompt = hub.pull("langchain-ai/pairwise-evaluation-2")
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        print_panel("rag-regression-testing-gpt4o-mini")
+        experiment_results = evaluate(
+            predict_rag_answer_openai_gpt4o_mini,
+            data=dataset_name,
+            evaluators=[regression_accuracy_criteria_evaluator],
+            experiment_prefix="rag-regression-testing-gpt4o-mini",
+            max_concurrency=EVAL_MAX_CONCURRENCY,
+            metadata={
+                "version": f"{DATASET_NAME}, {LLM_MODEL_NAME}",
+                "langchain_version": version("langchain"),
+                "langchain_community_version": version("langchain_community"),
+                "langchain_core_version": version("langchain_core"),
+                "langchain_openai_version": version("langchain_openai"),
+                "langchain_text_splitters_version": version("langchain_text_splitters"),
+                "langsmith_version": version("langsmith"),
+                "pydantic_version": version("pydantic"),
+                "pydantic_settings_version": version("pydantic_settings"),
+                "llm_run_config": LLM_RUN_CONFIG,
+            },
+        )
 
-# def evaluate_pairwise(runs: list[Run], example: Example):
-#     scores = {}
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        print_panel("rag-regression-testing-claude-3-5-sonnet")
+        experiment_results = evaluate(
+            predict_rag_answer_claude_3_5_sonnet,
+            data=dataset_name,
+            evaluators=[regression_accuracy_criteria_evaluator],
+            experiment_prefix="rag-regression-testing-claude-3-5-sonnet",
+            max_concurrency=EVAL_MAX_CONCURRENCY,
+            metadata={
+                "version": f"{DATASET_NAME}, {LLM_MODEL_NAME}",
+                "langchain_version": version("langchain"),
+                "langchain_community_version": version("langchain_community"),
+                "langchain_core_version": version("langchain_core"),
+                "langchain_openai_version": version("langchain_openai"),
+                "langchain_text_splitters_version": version("langchain_text_splitters"),
+                "langsmith_version": version("langsmith"),
+                "pydantic_version": version("pydantic"),
+                "pydantic_settings_version": version("pydantic_settings"),
+                "llm_run_config": LLM_RUN_CONFIG,
+            },
+        )
 
-#     # Create the model to run your evaluator
-#     model = ChatOpenAI(model_name="gpt-4")
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        print_panel("rag-regression-testing-claude-3-opus")
+        experiment_results = evaluate(
+            predict_rag_answer_claude_3_opus,
+            data=dataset_name,
+            evaluators=[regression_accuracy_criteria_evaluator],
+            experiment_prefix="rag-regression-testing-claude-3-5-sonnet",
+            max_concurrency=EVAL_MAX_CONCURRENCY,
+            metadata={
+                "version": f"{DATASET_NAME}, {LLM_MODEL_NAME}",
+                "langchain_version": version("langchain"),
+                "langchain_community_version": version("langchain_community"),
+                "langchain_core_version": version("langchain_core"),
+                "langchain_openai_version": version("langchain_openai"),
+                "langchain_text_splitters_version": version("langchain_text_splitters"),
+                "langsmith_version": version("langsmith"),
+                "pydantic_version": version("pydantic"),
+                "pydantic_settings_version": version("pydantic_settings"),
+                "llm_run_config": LLM_RUN_CONFIG,
+            },
+        )
 
-#     runnable = pairwise_evaluation_prompt | model
-#     response = runnable.invoke({
-#         "question": example.inputs["question"],
-#         "answer_a": runs[0].outputs["output"] if runs[0].outputs is not None else "N/A",
-#         "answer_b": runs[1].outputs["output"] if runs[1].outputs is not None else "N/A",
-#     })
-#     score = response["Preference"]
-#     if score == 1:
-#         scores[runs[0].id] = 1
-#         scores[runs[1].id] = 0
-#     elif score == 2:
-#         scores[runs[0].id] = 0
-#         scores[runs[1].id] = 1
-#     else:
-#         scores[runs[0].id] = 0
-#         scores[runs[1].id] = 0
-#     return {"key": "ranked_preference", "scores": scores}
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        print_panel("rag-regression-testing-claude-3-haiku")
+        experiment_results = evaluate(
+            predict_rag_answer_claude_3_haiku,
+            data=dataset_name,
+            evaluators=[regression_accuracy_criteria_evaluator],
+            experiment_prefix="rag-regression-testing-claude-3-5-sonnet",
+            max_concurrency=EVAL_MAX_CONCURRENCY,
+            metadata={
+                "version": f"{DATASET_NAME}, {LLM_MODEL_NAME}",
+                "langchain_version": version("langchain"),
+                "langchain_community_version": version("langchain_community"),
+                "langchain_core_version": version("langchain_core"),
+                "langchain_openai_version": version("langchain_openai"),
+                "langchain_text_splitters_version": version("langchain_text_splitters"),
+                "langsmith_version": version("langsmith"),
+                "pydantic_version": version("pydantic"),
+                "pydantic_settings_version": version("pydantic_settings"),
+                "llm_run_config": LLM_RUN_CONFIG,
+            },
+        )
+
+    # DISABLED: # def predict_rag_answer_phi3(example: dict):
+    # DISABLED: #     """Use this for answer evaluation"""
+    # DISABLED: #     rag_bot = RagBot(retriever,provider="ollama",model="phi3")
+    # DISABLED: #     response = rag_bot.get_answer(example["input_question"])
+    # DISABLED: #     return {"answer": response["answer"]}
+
+    # -------------------------
+    # Pairwise Testing
+    # -------------------------
+
+    # TODO: https://docs.smith.langchain.com/how_to_guides/evaluation/evaluate_pairwise
+    # Update the values below and uncomment the code to run
+    # pairwise_evaluation_prompt = hub.pull("langchain-ai/pairwise-evaluation-2")
+
+    # How do multiple answer versions compare?
+    # def evaluate_pairwise(runs: list[Run], example: Example):
+    #     scores = {}
+
+    #     # Create the model to run your evaluator
+    #     model = ChatOpenAI(model_name="gpt-4")
+
+    #     runnable = pairwise_evaluation_prompt | model
+    #     response = runnable.invoke({
+    #         "question": example.inputs["question"],
+    #         "answer_a": runs[0].outputs["output"] if runs[0].outputs is not None else "N/A",
+    #         "answer_b": runs[1].outputs["output"] if runs[1].outputs is not None else "N/A",
+    #     })
+    #     score = response["Preference"]
+    #     if score == 1:
+    #         scores[runs[0].id] = 1
+    #         scores[runs[1].id] = 0
+    #     elif score == 2:
+    #         scores[runs[0].id] = 0
+    #         scores[runs[1].id] = 1
+    #     else:
+    #         scores[runs[0].id] = 0
+    #         scores[runs[1].id] = 0
+    #     return {"key": "ranked_preference", "scores": scores}
 
 
-# evaluate_comparative(
-#     # Replace the following array with the names or IDs of your experiments
-#     ["my-experiment-name-1", "my-experiment-name-2"],
-#     evaluators=[evaluate_pairwise],
-# )
+    # evaluate_comparative(
+    #     # Replace the following array with the names or IDs of your experiments
+    #     ["my-experiment-name-1", "my-experiment-name-2"],
+    #     evaluators=[evaluate_pairwise],
+    # )
 
 # -------------------------
 # Helpfulness Testing
@@ -1381,10 +1414,81 @@ with warnings.catch_warnings():
 # The "string_distance" evaluator computes a normalized string edit distance between the prediction and reference
 # The "embedding_distance" evaluator computes the distance between the text embeddings of the prediction and reference
 
+# FIXME: use console export text instead of console.rule
+def write_run_tree_to_file(fname: str, run: Run, example: Example):
+    """
+    Write the run tree to a file in the current working directory.
+    """
+    run_name = f"../cached_evals/run-{fname}.txt"
+    example_name = f"../cached_evals/example-{fname}.txt"
+    console_recorder = Console(record=True)
+    console_recorder.print("Run: \n\n")
+    console_recorder.print(rich.inspect(run, methods=True, value=True))
+    text_run = console_recorder.export_text()
+    with open(run_name, "w") as file:
+        file.write(text_run)
+
+    console_recorder.print("Example: \n\n")
+    console_recorder.print(rich.inspect(example, methods=True, value=True))
+    text_example = console_recorder.export_text()
+    with open(example_name, "w") as file:
+        file.write(text_example)
+
+
 
 # -------------------------
-# Pairwise Testing
+# Summary Evaluation Testing
 # -------------------------
+# Row-level evaluator
+def correct_answer(run: Run, example: Example) -> dict:
+    write_run_tree_to_file("correct_answer", run, example)
+    # SOURCE: https://docs.smith.langchain.com/old/cookbook/testing-examples/movie-demo#our-pipeline
+    # SOURCE: https://docs.smith.langchain.com/how_to_guides/evaluation/evaluate_llm_application#use-a-summary-evaluator
+    # DISABLED: # score = run.outputs.get("output") == example.outputs.get("output_answer")
+    score = run.outputs["answer"] == example.outputs["output_answer"]
+
+    # Get question, ground truth answer, RAG chain answer
+    # input_question = example.inputs["input_question"]
+    # reference = example.outputs["output_answer"]
+    # prediction = run.outputs["answer"]
+    return {"score": int(score)}
+
+def summary_eval(runs: list[Run], examples: list[Example]) -> dict:
+    # write_run_tree_to_file("summary-eval", runs, examples)
+    correct = 0
+    for i, run in enumerate(runs):
+        if run.outputs["output"] == examples[i].outputs["output_answer"]:
+            correct += 1
+    if correct / len(runs) > 0.5:
+        return {"key": "pass", "score": True}
+    else:
+        return {"key": "pass", "score": False}
+
+# disabled for now
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore")
+    print_panel("rag-summary-evaluation-testing")
+    experiment_results = evaluate(
+        predict_rag_answer,
+        data=dataset_name,
+        # evaluators=[answer_evaluator],
+        evaluators=[correct_answer],
+        summary_evaluators=[summary_eval],
+        experiment_prefix="rag-summary-evaluation-testing",
+        max_concurrency=EVAL_MAX_CONCURRENCY,
+        metadata={
+            "version": f"{DATASET_NAME}, {LLM_MODEL_NAME}",
+            "langchain_version": version("langchain"),
+            "langchain_community_version": version("langchain_community"),
+            "langchain_core_version": version("langchain_core"),
+            "langchain_openai_version": version("langchain_openai"),
+            "langchain_text_splitters_version": version("langchain_text_splitters"),
+            "langsmith_version": version("langsmith"),
+            "pydantic_version": version("pydantic"),
+            "pydantic_settings_version": version("pydantic_settings"),
+            "llm_run_config": LLM_RUN_CONFIG,
+        },
+    )
 
 # -------------------------
 # Back Testing
