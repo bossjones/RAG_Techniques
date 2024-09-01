@@ -489,6 +489,11 @@ class RagBot:
         return chain.invoke({"question": question})
 
     @traceable()
+    def display_chain(self, question: str):
+        chain = self.build_chain(question)
+        chain.get_graph().print_ascii()
+
+    @traceable()
     async def aexecute_chain(self, question: str):
         chain = self.build_chain(question)
         return await chain.ainvoke({"question": question})
@@ -591,7 +596,7 @@ class RagBot:
                 answer=rag_chain_from_docs
             )
 
-            chain.get_graph().print_ascii()
+            # chain.get_graph().print_ascii()
 
         elif self._provider == "anthropic":
             LOGGER.info("Anthropic selected")
@@ -678,7 +683,7 @@ rag_bot = RagBot(retriever)
 
 # bot smoke test
 response = rag_bot.execute_chain(test_query)
-rich.print(response)
+# rich.print(response)
 
 
 
@@ -800,7 +805,7 @@ try:
             },
         )
 
-        experiment_results
+        # experiment_results
 except Exception as ex:
     rich.print(f"{ex}")
     exc_type, exc_value, exc_traceback = sys.exc_info()
