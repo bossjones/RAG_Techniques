@@ -220,3 +220,4 @@ loguru>=0.7.2
 
 # NOTE: this is Psycopg 3
 psycopg[binary,pool]==3.2.1
+pydantic-settings==2.4.0
