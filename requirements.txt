@@ -171,7 +171,7 @@ tornado==6.4.1
 tqdm==4.66.4
 traitlets==5.14.3
 transformers==4.43.2
-typer==0.12.3
+typer
 typing_extensions==4.12.2
 typing-inspect==0.9.0
 tzdata==2024.1
@@ -221,3 +221,4 @@ loguru>=0.7.2
 # NOTE: this is Psycopg 3
 psycopg[binary,pool]==3.2.1
 pydantic-settings==2.4.0
+langchain-cli>=0.0.22
