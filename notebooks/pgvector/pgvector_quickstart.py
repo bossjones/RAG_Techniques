@@ -1,18 +1,16 @@
 # SOURCE: https://www.youtube.com/watch?v=Ff3tJ4pJEa4
 import pinecone
 from dotenv import load_dotenv
-from langchain.document_loaders import TextLoader
-from langchain.embeddings.openai import OpenAIEmbeddings
-from langchain.text_splitter import CharacterTextSplitter
-from langchain.vectorstores import Pinecone
-from langchain.document_loaders import TextLoader
-from langchain.vectorstores.pgvector import PGVector
 from pgvector_service import PgvectorService
 import os
 import time
 
 
 import dotenv
+from langchain_community.document_loaders import TextLoader
+from langchain_community.embeddings import OpenAIEmbeddings
+from langchain_community.vectorstores import PGVector, Pinecone
+from langchain_text_splitters import CharacterTextSplitter
 
 
 # Reload the variables in your '.env' file (override the existing variables)

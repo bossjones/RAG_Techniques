@@ -1,4 +1,3 @@
-from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain_community.vectorstores.pgvector import (
     PGVector,
     _get_embedding_collection_store,
@@ -8,6 +7,7 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session
 from dotenv import load_dotenv
 import logging
+from langchain_community.embeddings import OpenAIEmbeddings
 
 
 EmbeddingStore = _get_embedding_collection_store()[0]

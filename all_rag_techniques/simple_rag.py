@@ -17,6 +17,8 @@ import traceback
 import bpdb
 import rich
 
+from langchain_core.prompts import HumanMessagePromptTemplate, SystemMessagePromptTemplate
+
 
 # SOURCE: https://github.com/taikinman/langrila/blob/main/src/langrila/openai/model_config.py
 # SOURCE: https://github.com/taikinman/langrila/blob/main/src/langrila/openai/model_config.py
@@ -546,7 +548,6 @@ import rich
 
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain.chains.question_answering import load_qa_chain
-from langchain.prompts import HumanMessagePromptTemplate, SystemMessagePromptTemplate
 from langchain.pydantic_v1 import BaseModel
 from langchain_core.documents import Document
 from langchain_core.prompts import ChatPromptTemplate
