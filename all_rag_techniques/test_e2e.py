@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # NOTE: THIS IS THE END ALL FILE FOR ALL OF THIS STUFF, DONT WORRY ABOUT THE NOTEBOOKS ETC, WORRY ABOUT THIS
+# NOTE: https://python.langchain.com/v0.2/docs/how_to/qa_sources/
 from __future__ import annotations
 
 import os
@@ -435,6 +436,17 @@ class RAGResponse(BaseModel):
 
 def format_docs(docs: list[Document]):
     return "\n\n".join(doc.page_content for doc in docs)
+
+def get_all_prompts_in_chain(chain):
+    """
+    Returns all the prompts in the chain.
+    """
+    # SOURCE: https://python.langchain.com/v0.2/docs/how_to/lcel_cheatsheet/
+    for i, prompt in enumerate(chain.get_prompts()):
+        rich.print(f"**prompt {i=}**\n")
+        rich.print(prompt.pretty_repr())
+        rich.print("\n" * 3)
+    # return chain.prompts
 
 class RagBot:
 
