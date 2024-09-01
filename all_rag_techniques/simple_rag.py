@@ -27,54 +27,6 @@ from langchain_core.prompts import HumanMessagePromptTemplate, SystemMessageProm
 from loguru import logger as LOGGER
 
 
-class RAGResponse(BaseModel):
-    question: str
-    context: list[Document]
-    answer: str
-
-def info(type, value, tb):
-    LOGGER.info(f"type: {type}")
-    LOGGER.info(f"reveal_type(type): {type(type)}")  # pylint: disable=undefined-variable
-
-    LOGGER.info(f"value: {value}")
-    LOGGER.info(f"reveal_type(value): {type(value)}")  # pylint: disable=undefined-variable
-
-    LOGGER.info(f"tb: {tb}")
-    LOGGER.info(f"reveal_type(type): {type(tb)}")  # pylint: disable=undefined-variable
-
-    if hasattr(sys, "ps1") or not sys.stderr.isatty() or not sys.stdin.isatty():
-        # stdin or stderr is redirected, just do the normal thing
-        original_hook(type, value, tb)
-    else:
-        # a terminal is attached and stderr is not redirected, debug
-        import traceback
-
-        traceback.print_exception(type, value, tb)
-        # environment variable PYTHON_DEBUG can select debugging type
-        debug_style = os.environ.get("PYTHON_DEBUG", "bpdb")
-        print(debug_style)
-        if debug_style in ["pdb", "bpdb"]:
-            print("[NOTE] automatic debugging from %s" % __file__, file=sys.stderr)
-        if debug_style == "bpdb":
-            import bpdb
-
-            bpdb.pm()
-        elif debug_style == "pdb":
-            import pdb
-
-            pdb.pm()
-        else:
-            raise Exception('cannot interpret environment variable PYTHON_DEBUG: "%s"' % debug_style)
-
-# automatically debug unless stdout/stderr redirected via stack overflow
-# ! note that python3 has more rigid scopes so you might not see everything you want
-original_hook = sys.excepthook
-# setting PYTHON_DEBUG to NO suppresses any debugging
-if sys.excepthook == sys.__excepthook__ and os.environ.get("PYTHON_DEBUG", "bpdb") not in ["NO", "no"]:
-    # if someone already patched excepthook, let them win
-    sys.excepthook = info
-
-
 # SOURCE: https://github.com/taikinman/langrila/blob/main/src/langrila/openai/model_config.py
 # SOURCE: https://github.com/taikinman/langrila/blob/main/src/langrila/openai/model_config.py
 # TODO: Look at this https://github.com/h2oai/h2ogpt/blob/542543dc23aa9eb7d4ce7fe6b9af1204a047b50f/src/enums.py#L386 and see if we can add some more models
@@ -134,7 +86,8 @@ _NEWER_MODEL_CONFIG = {
         "completion_cost_per_token": 0.00001,
     },
     "gpt-4o-mini-2024-07-18": {
-        "max_tokens": 128000,
+        # "max_tokens": 128000,
+        "max_tokens": 900,
         "max_output_tokens": 16384,
         "prompt_cost_per_token": 0.000000150,
         "completion_cost_per_token": 0.00000060,
@@ -614,6 +567,11 @@ from langsmith.wrappers import wrap_openai
 from openai.types.chat.chat_completion import ChatCompletion
 
 
+class RAGResponse(BaseModel):
+    question: str
+    context: list[Document]
+    answer: str
+
 def format_docs(docs: list[Document]):
     return "\n\n".join(doc.page_content for doc in docs)
 
@@ -775,7 +733,7 @@ rag_bot = RagBot(retriever)
 response = rag_bot.execute_chain(test_query)
 # rich.print(response["answer"][:150])
 rich.print(response)
-bpdb.set_trace()
+# bpdb.set_trace()
 
 # rich.inspect(rag_bot._llm, all=True)
 
@@ -801,7 +759,7 @@ bot_chain = rag_bot.build_chain(test_query)
 # %%
 def predict_rag_answer(example: dict):
     """Use this for answer evaluation"""
-    bpdb.set_trace()
+    # bpdb.set_trace()
     response = rag_bot.get_answer(example["input_question"])
     # DISABLED: return {"answer": response["answer"]}
     # FIXME: THIS IS WHERE WE ARE GETTING 'TypeError: string indices must be integers'  because response is a string!!!
@@ -809,7 +767,7 @@ def predict_rag_answer(example: dict):
 
 def predict_rag_answer_with_context(example: dict):
     """Use this for evaluation of retrieved documents and hallucinations"""
-    bpdb.set_trace()
+    # bpdb.set_trace()
     response = rag_bot.get_answer(example["input_question"])
     return {"answer": response["answer"], "contexts": response["contexts"]}
 
@@ -895,7 +853,7 @@ def answer_evaluator(run: Run, example: Example) -> dict:
     """
     A simple evaluator for RAG answer accuracy
     """
-    bpdb.set_trace()
+    # bpdb.set_trace()
     examples.append(example)
     runs.append(run)
 
@@ -928,7 +886,7 @@ def answer_evaluator(run: Run, example: Example) -> dict:
 try:
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        bpdb.set_trace()
+        # bpdb.set_trace()
         experiment_results = evaluate(
             predict_rag_answer,
             data=dataset_name,
