@@ -27,6 +27,8 @@ import os
 import sys
 
 from dotenv import load_dotenv
+from rich.console import Console
+from rich.markdown import Markdown
 
 
 sys.path.append(os.path.abspath(os.path.join(os.getcwd(), '..'))) # Add the parent directory to the path since we work with notebooks
@@ -741,10 +743,28 @@ def answer_evaluator(run: Run, example: Example) -> dict:
 #
 # - `predict_rag_answer`: Takes an `example` from our eval set, extracts the question, passes to our RAG chain
 # - `answer_evaluator`: Passes RAG chain answer, question, and ground truth answer to an evaluator
+# from rich.console import Console
+from rich.panel import Panel
+
+
+def print_markdown(text: str):
+    console = Console()
+    md = Markdown(text)
+    console.print()
+    console.print(md)
+
+def print_panel(text: str):
+    update_text = f"[green]{text}"
+    console = Console()
+    panel_contents = Panel(update_text)
+    console.print()
+    console.print(panel_contents)
+    console.print()
 
 
 try:
     with warnings.catch_warnings():
+        print_panel("rag-answer-v-reference")
         warnings.simplefilter("ignore")
         # bpdb.set_trace()
         experiment_results = evaluate(
@@ -818,6 +838,7 @@ def answer_helpfulness_evaluator(run, example) -> dict:
 
 with warnings.catch_warnings():
     warnings.simplefilter("ignore")
+    print_panel("rag-answer-helpfulness")
     experiment_results = evaluate(
         predict_rag_answer,
         data=dataset_name,
@@ -881,6 +902,7 @@ def answer_hallucination_evaluator(run, example) -> dict:
 
 with warnings.catch_warnings():
     warnings.simplefilter("ignore")
+    print_panel("rag-answer-hallucination")
     experiment_results = evaluate(
         predict_rag_answer_with_context,
         data=dataset_name,
@@ -941,6 +963,7 @@ def docs_relevance_evaluator(run, example) -> dict:
 
 with warnings.catch_warnings():
     warnings.simplefilter("ignore")
+    print_panel("rag-doc-relevance")
     experiment_results = evaluate(
         predict_rag_answer_with_context,
         data=dataset_name,
@@ -1050,6 +1073,7 @@ def answer_hallucination_grader(root_run: Run, example: Example) -> dict:
 
 with warnings.catch_warnings():
     warnings.simplefilter("ignore")
+    print_panel("rag-doc-relevance-and-hallucination-grader")
     experiment_results = evaluate(
         predict_rag_answer,
         data=dataset_name,
@@ -1104,6 +1128,7 @@ criteria_evaluator = LangChainStringEvaluator(
 
 with warnings.catch_warnings():
     warnings.simplefilter("ignore")
+    print_panel("rag-regression-testing-gpt4o-mini")
     experiment_results = evaluate(
         predict_rag_answer_openai_gpt4o_mini,
         data=dataset_name,
@@ -1126,6 +1151,7 @@ with warnings.catch_warnings():
 
 with warnings.catch_warnings():
     warnings.simplefilter("ignore")
+    print_panel("rag-regression-testing-claude-3-5-sonnet")
     experiment_results = evaluate(
         predict_rag_answer_claude_3_5_sonnet,
         data=dataset_name,
