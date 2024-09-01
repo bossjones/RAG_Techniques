@@ -12,12 +12,67 @@
 # %%
 from __future__ import annotations
 
+import os
+import sys
 import traceback
+import typing
+
+from typing import List
 
 import bpdb
 import rich
 
+from langchain_core.documents import Document
 from langchain_core.prompts import HumanMessagePromptTemplate, SystemMessagePromptTemplate
+from loguru import logger as LOGGER
+
+
+class RAGResponse(BaseModel):
+    question: str
+    context: list[Document]
+    answer: str
+
+def info(type, value, tb):
+    LOGGER.info(f"type: {type}")
+    LOGGER.info(f"reveal_type(type): {type(type)}")  # pylint: disable=undefined-variable
+
+    LOGGER.info(f"value: {value}")
+    LOGGER.info(f"reveal_type(value): {type(value)}")  # pylint: disable=undefined-variable
+
+    LOGGER.info(f"tb: {tb}")
+    LOGGER.info(f"reveal_type(type): {type(tb)}")  # pylint: disable=undefined-variable
+
+    if hasattr(sys, "ps1") or not sys.stderr.isatty() or not sys.stdin.isatty():
+        # stdin or stderr is redirected, just do the normal thing
+        original_hook(type, value, tb)
+    else:
+        # a terminal is attached and stderr is not redirected, debug
+        import traceback
+
+        traceback.print_exception(type, value, tb)
+        # environment variable PYTHON_DEBUG can select debugging type
+        debug_style = os.environ.get("PYTHON_DEBUG", "bpdb")
+        print(debug_style)
+        if debug_style in ["pdb", "bpdb"]:
+            print("[NOTE] automatic debugging from %s" % __file__, file=sys.stderr)
+        if debug_style == "bpdb":
+            import bpdb
+
+            bpdb.pm()
+        elif debug_style == "pdb":
+            import pdb
+
+            pdb.pm()
+        else:
+            raise Exception('cannot interpret environment variable PYTHON_DEBUG: "%s"' % debug_style)
+
+# automatically debug unless stdout/stderr redirected via stack overflow
+# ! note that python3 has more rigid scopes so you might not see everything you want
+original_hook = sys.excepthook
+# setting PYTHON_DEBUG to NO suppresses any debugging
+if sys.excepthook == sys.__excepthook__ and os.environ.get("PYTHON_DEBUG", "bpdb") not in ["NO", "no"]:
+    # if someone already patched excepthook, let them win
+    sys.excepthook = info
 
 
 # SOURCE: https://github.com/taikinman/langrila/blob/main/src/langrila/openai/model_config.py
@@ -592,7 +647,8 @@ class RagBot:
         #     "answer": response.choices[0].message.content,
         #     "contexts": [str(doc) for doc in docs],
         # }
-        return chain.invoke(question)
+        # return chain.invoke(question)
+        return chain.invoke({"question": question})
 
     @traceable()
     async def aexecute_chain(self, question: str):
@@ -666,20 +722,41 @@ class RagBot:
 
         LOGGER.debug(base_prompt)
 
+        # Version 1
+        # rag_chain_from_docs = (
+        #     {
+        #         "question": RunnablePassthrough(), # input query. RunnablePassthrough() just passes the input through, ie the input query/question.
+        #         "context": retriever | format_docs, # context
+        #     }
+        #     | base_prompt   # format query and context into prompt
+        #     | self._llm # generate response
+        #     | StrOutputParser()  # coerce to string
+        # )
 
-        rag_chain = (
+
+        rag_chain_from_docs = (
             {
-                "question": RunnablePassthrough(), # input query. RunnablePassthrough() just passes the input through, ie the input query/question.
-                "context": retriever | format_docs, # context
+                "question": lambda x: x["question"], # input query. RunnablePassthrough() just passes the input through, ie the input query/question.
+                "context": lambda x: format_docs(x["context"]), # context
             }
             | base_prompt   # format query and context into prompt
             | self._llm # generate response
             | StrOutputParser()  # coerce to string
         )
+        # Pass input query to retriever
+        retrieve_docs = (lambda x: x["question"]) | retriever
 
-        rag_chain.get_graph().print_ascii()
+        # Below, we chain `.assign` calls. This takes a dict and successively
+        # adds keys-- "context" and "answer"-- where the value for each key
+        # is determined by a Runnable. The Runnable operates on all existing
+        # keys in the dict.
+        chain = RunnablePassthrough.assign(context=retrieve_docs).assign(
+            answer=rag_chain_from_docs
+        )
 
-        return rag_chain
+        chain.get_graph().print_ascii()
+
+        return chain
 
     # @traceable()
     # def get_answer(self, question: str):
@@ -698,6 +775,7 @@ rag_bot = RagBot(retriever)
 response = rag_bot.execute_chain(test_query)
 # rich.print(response["answer"][:150])
 rich.print(response)
+bpdb.set_trace()
 
 # rich.inspect(rag_bot._llm, all=True)
 

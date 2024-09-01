@@ -231,3 +231,7 @@ db-create:
 typecheck:
 	pyright -p pyproject.toml .
 	mypy  --config-file=pyproject.toml --html-report typingcov .
+
+install:
+	pip install setuptools "cython >= 0.28"
+	pip install -U -r requirements.txt

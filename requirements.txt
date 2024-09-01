@@ -223,3 +223,4 @@ psycopg[binary,pool]==3.2.1
 pydantic-settings==2.4.0
 langchain-cli>=0.0.22
 nbformat
+grandalf
