@@ -65,7 +65,6 @@ from langchain_core.runnables import (
 from langchain_openai import ChatOpenAI, OpenAI, OpenAIEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langsmith import traceable
-from langsmith.evaluation import EvaluationResults, LangChainStringEvaluator, evaluate
 from langsmith.run_trees import RunTree
 from langsmith.schemas import Example, Run
 from langsmith.wrappers import wrap_openai
@@ -358,7 +357,7 @@ path = "../data/Understanding_Climate_Change.pdf"
 
 
 # ### Encode document
-
+from langsmith.evaluation import EvaluationResults, LangChainStringEvaluator, evaluate  # noqa: I001
 
 def encode_pdf(path, chunk_size: int = CHUNK_SIZE, chunk_overlap: int = CHUNK_OVERLAP, add_start_index: bool = ADD_START_INDEX, llm_embedding_model_name: str = LLM_EMBEDDING_MODEL_NAME):
     """
@@ -1088,6 +1087,64 @@ def predict_rag_answer_claude_3_5_sonnet(example: dict):
     response = rag_bot.get_answer(example["input_question"])
     return {"answer": response["answer"]}
 
+# define evaluator
+
+criteria_evaluator = LangChainStringEvaluator(
+    "criteria",
+    config={
+        "criteria": {
+            "accuracy": "Is the Assistant's Answer grounded in and similar to the Ground Truth answer? A score of [[1]] means that the Assistant answer is not at all grounded in and similar to the Ground Truth answer. A score of [[5]] means  that the Assistant  answer contains some information that is grounded in and similar to the Ground Truth answer. A score of [[10]] means that the Assistant answer is fully grounded in and similar to the Ground Truth answer.",
+        },
+        # If you want the score to be saved on a scale from 0 to 1
+        "normalize_by": 10,
+    }
+)
+
+
+
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore")
+    experiment_results = evaluate(
+        predict_rag_answer_openai_gpt4o_mini,
+        data=dataset_name,
+        evaluators=[criteria_evaluator],
+        experiment_prefix="rag-regression-testing-gpt4o-mini",
+        max_concurrency=EVAL_MAX_CONCURRENCY,
+        metadata={
+            "version": f"{DATASET_NAME}, {LLM_MODEL_NAME}",
+            "langchain_version": version("langchain"),
+            "langchain_community_version": version("langchain_community"),
+            "langchain_core_version": version("langchain_core"),
+            "langchain_openai_version": version("langchain_openai"),
+            "langchain_text_splitters_version": version("langchain_text_splitters"),
+            "langsmith_version": version("langsmith"),
+            "pydantic_version": version("pydantic"),
+            "pydantic_settings_version": version("pydantic_settings"),
+            "llm_run_config": LLM_RUN_CONFIG,
+        },
+    )
+
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore")
+    experiment_results = evaluate(
+        predict_rag_answer_claude_3_5_sonnet,
+        data=dataset_name,
+        evaluators=[criteria_evaluator],
+        experiment_prefix="rag-regression-testing-claude-3-5-sonnet",
+        max_concurrency=EVAL_MAX_CONCURRENCY,
+        metadata={
+            "version": f"{DATASET_NAME}, {LLM_MODEL_NAME}",
+            "langchain_version": version("langchain"),
+            "langchain_community_version": version("langchain_community"),
+            "langchain_core_version": version("langchain_core"),
+            "langchain_openai_version": version("langchain_openai"),
+            "langchain_text_splitters_version": version("langchain_text_splitters"),
+            "langsmith_version": version("langsmith"),
+            "pydantic_version": version("pydantic"),
+            "pydantic_settings_version": version("pydantic_settings"),
+            "llm_run_config": LLM_RUN_CONFIG,
+        },
+    )
 # def predict_rag_answer_phi3(example: dict):
 #     """Use this for answer evaluation"""
 #     rag_bot = RagBot(retriever,provider="ollama",model="phi3")
