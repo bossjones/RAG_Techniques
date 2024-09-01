@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-
+# NOTE: THIS IS THE END ALL FILE FOR ALL OF THIS STUFF, DONT WORRY ABOUT THE NOTEBOOKS ETC, WORRY ABOUT THIS
 from __future__ import annotations
 
 import os
@@ -67,6 +67,7 @@ from langchain_core.runnables import (
 from langchain_openai import ChatOpenAI, OpenAI, OpenAIEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langsmith import traceable
+from langsmith.evaluation import evaluate_comparative
 from langsmith.run_trees import RunTree
 from langsmith.schemas import Example, Run
 from langsmith.wrappers import wrap_openai
@@ -1239,6 +1240,42 @@ with warnings.catch_warnings():
 #     rag_bot = RagBot(retriever,provider="ollama",model="phi3")
 #     response = rag_bot.get_answer(example["input_question"])
 #     return {"answer": response["answer"]}
+
+
+# TODO: https://docs.smith.langchain.com/how_to_guides/evaluation/evaluate_pairwise
+# Update the values below and uncomment the code to run
+# pairwise_evaluation_prompt = hub.pull("langchain-ai/pairwise-evaluation-2")
+
+# def evaluate_pairwise(runs: list[Run], example: Example):
+#     scores = {}
+
+#     # Create the model to run your evaluator
+#     model = ChatOpenAI(model_name="gpt-4")
+
+#     runnable = pairwise_evaluation_prompt | model
+#     response = runnable.invoke({
+#         "question": example.inputs["question"],
+#         "answer_a": runs[0].outputs["output"] if runs[0].outputs is not None else "N/A",
+#         "answer_b": runs[1].outputs["output"] if runs[1].outputs is not None else "N/A",
+#     })
+#     score = response["Preference"]
+#     if score == 1:
+#         scores[runs[0].id] = 1
+#         scores[runs[1].id] = 0
+#     elif score == 2:
+#         scores[runs[0].id] = 0
+#         scores[runs[1].id] = 1
+#     else:
+#         scores[runs[0].id] = 0
+#         scores[runs[1].id] = 0
+#     return {"key": "ranked_preference", "scores": scores}
+
+
+# evaluate_comparative(
+#     # Replace the following array with the names or IDs of your experiments
+#     ["my-experiment-name-1", "my-experiment-name-2"],
+#     evaluators=[evaluate_pairwise],
+# )
 
 # -------------------------
 # Helpfulness Testing
