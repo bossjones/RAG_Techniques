@@ -104,6 +104,22 @@ LOG_LEVEL = Literal[
 ]
 
 
+def filter_out_serialization_errors(record):
+    # Patterns to match the log messages you want to filter out
+    patterns = [
+        r"Orjson serialization failed:",
+        r"Failed to serialize .* to JSON:",
+        r"Object of type .* is not JSON serializable",
+    ]
+
+    # Check if the log message matches any of the patterns
+    for pattern in patterns:
+        if re.search(pattern, record["message"]):
+            return False  # Filter out this message
+
+    return True  # Keep all other messages
+
+
 # SOURCE: https://github.com/acgnhiki/blrec/blob/975fa2794a3843a883597acd5915a749a4e196c8/src/blrec/logging/configure_logging.py#L21
 class TqdmOutputStream:
     def write(self, string: str = "") -> None:
@@ -271,7 +287,9 @@ def reset_logging(log_dir: str, *, console_log_level: LOG_LEVEL = "INFO", backup
         else:
             logger.remove()  # remove the default stderr handler
 
-        _console_handler_id = logger.add(sys.stderr, level=console_log_level, format=LOGURU_CONSOLE_FORMAT)
+        _console_handler_id = logger.add(
+            sys.stderr, level=console_log_level, format=LOGURU_CONSOLE_FORMAT, filter=filter_out_serialization_errors
+        )
 
         _old_console_log_level = console_log_level
 
@@ -351,6 +369,8 @@ def global_log_config(log_level: Union[str, int] = logging.DEBUG, json: bool = F
                 "enqueue": True,
                 # catch (bool, optional) - Whether errors occurring while sink handles logs messages should be automatically caught. If True, an exception message is displayed on sys.stderr but the exception is not propagated to the caller, preventing your app to crash.
                 "catch": True,
+                # filter (callable, optional) - A callable that takes a record and returns a boolean. If the callable returns False, the record is filtered out.
+                "filter": filter_out_serialization_errors,
             }
         ],
         # extra={"request_id": REQUEST_ID_CONTEXTVAR.get()},
@@ -435,38 +455,38 @@ def formatter_sensitive(record: dict[str, Any]) -> str:
     )
 
 
-# SMOKE-TESTS
-if __name__ == "__main__":
-    from logging_tree import printout
+# # SMOKE-TESTS
+# if __name__ == "__main__":
+#     from logging_tree import printout
 
-    global_log_config(
-        log_level=logging.getLevelName("DEBUG"),
-        json=False,
-    )
-    LOGGER = logger
+#     global_log_config(
+#         log_level=logging.getLevelName("DEBUG"),
+#         json=False,
+#     )
+#     LOGGER = logger
 
-    def dump_logger_tree():
-        rootm = generate_tree()
-        LOGGER.debug(rootm)
+#     def dump_logger_tree():
+#         rootm = generate_tree()
+#         LOGGER.debug(rootm)
 
-    def dump_logger(logger_name: str):
-        LOGGER.debug(f"getting logger {logger_name}")
-        rootm = generate_tree()
-        return get_lm_from_tree(rootm, logger_name)
+#     def dump_logger(logger_name: str):
+#         LOGGER.debug(f"getting logger {logger_name}")
+#         rootm = generate_tree()
+#         return get_lm_from_tree(rootm, logger_name)
 
-    LOGGER.info("TESTING TESTING 1-2-3")
-    printout()
+#     LOGGER.info("TESTING TESTING 1-2-3")
+#     printout()
 
-    # <--""
-    #    Level NOTSET so inherits level NOTSET
-    #    Handler <InterceptHandler (NOTSET)>
-    #      Formatter fmt='%(levelname)s:%(name)s:%(message)s' datefmt=None
-    #    |
-    #    o<--"asyncio"
-    #    |   Level NOTSET so inherits level NOTSET
-    #    |
-    #    o<--[concurrent]
-    #        |
-    #        o<--"concurrent.futures"
-    #            Level NOTSET so inherits level NOTSET
-    # [INFO] Logger: TESTING TESTING 1-2-3
+#     # <--""
+#     #    Level NOTSET so inherits level NOTSET
+#     #    Handler <InterceptHandler (NOTSET)>
+#     #      Formatter fmt='%(levelname)s:%(name)s:%(message)s' datefmt=None
+#     #    |
+#     #    o<--"asyncio"
+#     #    |   Level NOTSET so inherits level NOTSET
+#     #    |
+#     #    o<--[concurrent]
+#     #        |
+#     #        o<--"concurrent.futures"
+#     #            Level NOTSET so inherits level NOTSET
+#     # [INFO] Logger: TESTING TESTING 1-2-3

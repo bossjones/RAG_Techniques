@@ -89,6 +89,7 @@ LOGGER.disable("ipykernel.")
 LOGGER.disable("ipykernel.kernelbase")
 LOGGER.disable("openai._base_client")
 LOGGER.disable("httpcore._trace")
+LOGGER.disable("langsmith.client:_serialize_json")
 
 import warnings
 
@@ -1107,7 +1108,19 @@ def predict_rag_answer_openai_gpt4o_mini(example: dict):
 
 def predict_rag_answer_claude_3_5_sonnet(example: dict):
     """Use this for answer evaluation"""
-    rag_bot = RagBot(retriever, provider="anthropic", model="claude-3-5-sonnet")
+    rag_bot = RagBot(retriever, provider="anthropic", model="claude-3-5-sonnet-20240620")
+    response = rag_bot.get_answer(example["input_question"])
+    return {"answer": response["answer"]}
+
+def predict_rag_answer_claude_3_opus(example: dict):
+    """Use this for answer evaluation"""
+    rag_bot = RagBot(retriever, provider="anthropic", model="claude-3-opus-20240229")
+    response = rag_bot.get_answer(example["input_question"])
+    return {"answer": response["answer"]}
+
+def predict_rag_answer_claude_3_haiku(example: dict):
+    """Use this for answer evaluation"""
+    rag_bot = RagBot(retriever, provider="anthropic", model="claude-3-haiku-20240307")
     response = rag_bot.get_answer(example["input_question"])
     return {"answer": response["answer"]}
 
@@ -1154,6 +1167,52 @@ with warnings.catch_warnings():
     print_panel("rag-regression-testing-claude-3-5-sonnet")
     experiment_results = evaluate(
         predict_rag_answer_claude_3_5_sonnet,
+        data=dataset_name,
+        evaluators=[criteria_evaluator],
+        experiment_prefix="rag-regression-testing-claude-3-5-sonnet",
+        max_concurrency=EVAL_MAX_CONCURRENCY,
+        metadata={
+            "version": f"{DATASET_NAME}, {LLM_MODEL_NAME}",
+            "langchain_version": version("langchain"),
+            "langchain_community_version": version("langchain_community"),
+            "langchain_core_version": version("langchain_core"),
+            "langchain_openai_version": version("langchain_openai"),
+            "langchain_text_splitters_version": version("langchain_text_splitters"),
+            "langsmith_version": version("langsmith"),
+            "pydantic_version": version("pydantic"),
+            "pydantic_settings_version": version("pydantic_settings"),
+            "llm_run_config": LLM_RUN_CONFIG,
+        },
+    )
+
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore")
+    print_panel("rag-regression-testing-claude-3-opus")
+    experiment_results = evaluate(
+        predict_rag_answer_claude_3_opus,
+        data=dataset_name,
+        evaluators=[criteria_evaluator],
+        experiment_prefix="rag-regression-testing-claude-3-5-sonnet",
+        max_concurrency=EVAL_MAX_CONCURRENCY,
+        metadata={
+            "version": f"{DATASET_NAME}, {LLM_MODEL_NAME}",
+            "langchain_version": version("langchain"),
+            "langchain_community_version": version("langchain_community"),
+            "langchain_core_version": version("langchain_core"),
+            "langchain_openai_version": version("langchain_openai"),
+            "langchain_text_splitters_version": version("langchain_text_splitters"),
+            "langsmith_version": version("langsmith"),
+            "pydantic_version": version("pydantic"),
+            "pydantic_settings_version": version("pydantic_settings"),
+            "llm_run_config": LLM_RUN_CONFIG,
+        },
+    )
+
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore")
+    print_panel("rag-regression-testing-claude-3-haiku")
+    experiment_results = evaluate(
+        predict_rag_answer_claude_3_haiku,
         data=dataset_name,
         evaluators=[criteria_evaluator],
         experiment_prefix="rag-regression-testing-claude-3-5-sonnet",
