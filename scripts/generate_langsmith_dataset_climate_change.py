@@ -451,7 +451,7 @@ dataset = client.create_dataset(
 )
 for input_prompt, output_answer in example_inputs:
     client.create_example(
-        inputs={"question": input_prompt},
+        inputs={"input_question": input_prompt},
         outputs={"output_answer": output_answer},
         metadata={"source": "Various"},
         dataset_id=dataset.id,

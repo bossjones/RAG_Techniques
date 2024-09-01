@@ -585,6 +585,13 @@ class RagBot:
     @traceable()
     def execute_chain(self, question: str):
         chain = self.build_chain(question)
+        # FIXME: Evaluators will expect "answer" and "contexts"
+        # Evaluators will expect "answer" and "contexts"
+        # EG:
+        # return {
+        #     "answer": response.choices[0].message.content,
+        #     "contexts": [str(doc) for doc in docs],
+        # }
         return chain.invoke(question)
 
     @traceable()
@@ -648,6 +655,7 @@ class RagBot:
 
         # question_answer_chain = create_stuff_documents_chain(self._llm, chat_prompt)
         # # rag_chain = create_retrieval_chain(self._retriever, question_answer_chain)
+        # READ THIS: https://python.langchain.com/v0.2/docs/how_to/qa_sources/
 
         base_human_template = "You are an assistant for question-answering tasks. Use the following pieces of retrieved context to answer the question. If you don't know the answer, just say that you don't know. Use three sentences maximum and keep the answer concise.\n\nQuestion: {question} \n\nContext: {context} \n\nAnswer:"
 
@@ -660,11 +668,16 @@ class RagBot:
 
 
         rag_chain = (
-            {"context": retriever | format_docs, "question": RunnablePassthrough()}
-            | base_prompt
-            | self._llm
-            | StrOutputParser()
+            {
+                "question": RunnablePassthrough(), # input query. RunnablePassthrough() just passes the input through, ie the input query/question.
+                "context": retriever | format_docs, # context
+            }
+            | base_prompt   # format query and context into prompt
+            | self._llm # generate response
+            | StrOutputParser()  # coerce to string
         )
+
+        rag_chain.get_graph().print_ascii()
 
         return rag_chain
 
@@ -711,14 +724,16 @@ bot_chain = rag_bot.build_chain(test_query)
 def predict_rag_answer(example: dict):
     """Use this for answer evaluation"""
     bpdb.set_trace()
-    response = rag_bot.get_answer(example["question"])
-    return {"answer": response["output_answer"]}
+    response = rag_bot.get_answer(example["input_question"])
+    # DISABLED: return {"answer": response["answer"]}
+    # FIXME: THIS IS WHERE WE ARE GETTING 'TypeError: string indices must be integers'  because response is a string!!!
+    return {"answer": response["answer"]}
 
 def predict_rag_answer_with_context(example: dict):
     """Use this for evaluation of retrieved documents and hallucinations"""
     bpdb.set_trace()
-    response = rag_bot.get_answer(example["question"])
-    return {"answer": response["output_answer"], "contexts": response["contexts"]}
+    response = rag_bot.get_answer(example["input_question"])
+    return {"answer": response["answer"], "contexts": response["contexts"]}
 
 # %% [markdown]
 # ## Evaluator[](https://docs.smith.langchain.com/tutorials/Developers/rag#evaluator)
@@ -807,7 +822,7 @@ def answer_evaluator(run: Run, example: Example) -> dict:
     runs.append(run)
 
     # Get question, ground truth answer, RAG chain answer
-    question = example.inputs["question"]
+    input_question = example.inputs["input_question"]
     reference = example.outputs["output_answer"]
     prediction = run.outputs["answer"]
 
@@ -818,7 +833,7 @@ def answer_evaluator(run: Run, example: Example) -> dict:
     answer_grader = grade_prompt_answer_accuracy | llm
 
     # Run evaluator
-    score = answer_grader.invoke({"question": question,
+    score = answer_grader.invoke({"question": input_question,
                                   "correct_answer": reference,
                                   "student_answer": prediction})
     score = score["Score"]
