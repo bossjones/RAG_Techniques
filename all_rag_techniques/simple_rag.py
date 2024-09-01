@@ -283,7 +283,7 @@ EMBEDDING_MODEL_DIMENSIONS_DATA = {
 # Top level vars
 
 
-
+EVAL_MAX_CONCURRENCY = 4
 LLM_MODEL_NAME = "gpt-4o-mini"
 CHUNK_SIZE: int=1000
 CHUNK_OVERLAP: int = 200
@@ -927,7 +927,7 @@ try:
             data=dataset_name,
             evaluators=[answer_evaluator],
             experiment_prefix="rag-answer-v-reference",
-            max_concurrency=4,
+            max_concurrency=EVAL_MAX_CONCURRENCY,
             metadata={
                 "version": f"{DATASET_NAME}, {LLM_MODEL_NAME}",
                 "langchain_version": version("langchain"),
@@ -998,7 +998,7 @@ with warnings.catch_warnings():
         data=dataset_name,
         evaluators=[answer_helpfulness_evaluator],
         experiment_prefix="rag-answer-helpfulness",
-        max_concurrency=4,
+        max_concurrency=EVAL_MAX_CONCURRENCY,
         metadata={
             "version": f"{DATASET_NAME}, {LLM_MODEL_NAME}",
             "langchain_version": version("langchain"),
@@ -1061,7 +1061,7 @@ with warnings.catch_warnings():
         data=dataset_name,
         evaluators=[answer_hallucination_evaluator],
         experiment_prefix="rag-answer-hallucination",
-        max_concurrency=4,
+        max_concurrency=EVAL_MAX_CONCURRENCY,
         metadata={
             "version": f"{DATASET_NAME}, {LLM_MODEL_NAME}",
             "langchain_version": version("langchain"),
@@ -1121,7 +1121,7 @@ with warnings.catch_warnings():
         data=dataset_name,
         evaluators=[docs_relevance_evaluator],
         experiment_prefix="rag-doc-relevance",
-        max_concurrency=4,
+        max_concurrency=EVAL_MAX_CONCURRENCY,
         metadata={
             "version": f"{DATASET_NAME}, {LLM_MODEL_NAME}",
             "langchain_version": version("langchain"),
@@ -1229,7 +1229,8 @@ with warnings.catch_warnings():
         predict_rag_answer,
         data=dataset_name,
         evaluators=[document_relevance_grader, answer_hallucination_grader],
-        max_concurrency=4,
+        experiment_prefix="rag-doc-relevance-and-hallucination-grader",
+        max_concurrency=EVAL_MAX_CONCURRENCY,
         metadata={
             "version": f"{DATASET_NAME}, {LLM_MODEL_NAME}",
             "langchain_version": version("langchain"),
