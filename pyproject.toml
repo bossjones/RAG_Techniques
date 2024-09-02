@@ -186,7 +186,7 @@ source = [
 [tool.coverage.run]
 parallel = true
 branch = true
-source = ["goob_ai"]
+source = ["RAG_Techniques"]
 # NOTE: This might break some SHIT (5/8/2024)
 # SOURCE: https://github.com/anthonycorletti/snok/blob/039ae9aaf403485ce9b7fedb0e1943c25a250eed/snok/templates/__shared/_pyproject_toml#L130
 concurrency = ["thread", "greenlet", "multiprocessing"]
@@ -622,51 +622,9 @@ unsafe-fixes = false
 unfixable = [
     "ERA", # do not autoremove commented out code
 ]
-# # A list of rule codes or prefixes for which safe fixes should be considered unsafe. default []
-# extend-unsafe-fixes = [
-#     "D",
-# ] # pydocstyle (D) https://docs.astral.sh/ruff/rules/#pydocstyle-d
 
-# A list of rule codes or prefixes to consider non-fixable. default []
-# unfixable = ["I"] # isort (I) https://docs.astral.sh/ruff/rules/#isort-i
-
-# Only allow fix behavior for `E` and `F` rules. https://docs.astral.sh/ruff/settings/#lint_fixable
-
-# fixable = [
-#     "E", # Error (E)# https://docs.astral.sh/ruff/rules/#pycodestyle-e-w
-#     "F", # Pyflakes (F)
-#     "I",
-# ]
 # Allow fix for all enabled rules (when `--fix`) is provided.
 fixable = ["ALL"]
-
-# # Enable Pyflakes (`F`) and a subset of the pycodestyle (`E`)  codes by default.
-# # Unlike Flake8, Ruff doesn't enable pycodestyle warnings (`W`) or
-# # McCabe complexity (`C901`) by default.
-# select = [
-#     "I", # isort
-#     "Q", # flake8-quotes (Q) https://docs.astral.sh/ruff/rules/#flake8-quotes-q
-#     # "RUF100", # unused `noqa` directive
-#     # "C90",    # mccabe (C90). C901 complex-structure	{name} is too complex ({complexity} > {max_complexity})
-#     # "F",      # pyflakes (F) https://docs.astral.sh/ruff/rules/#pyflakes-f
-#     "D",    # pydocstyle (D) https://docs.astral.sh/ruff/rules/#pydocstyle-d
-#     "I002", # from __future__ import annotations
-#     # # used to be in extended select
-#     # "ARG", # flake8-unused-arguments
-#     # "C",   # pylint: Convention (C)
-#     # "C4",  # flake8-comprehensions
-#     # "D107", # pycodestyle (Missing docstring in __init__)
-#     # "E",    # pycodestyle errors https://docs.astral.sh/ruff/rules/#pycodestyle-e-w
-#     # "PL",    # pylint
-#     # "RUF",   # Ruff
-#     # "SIM",   # flake8-simplify
-#     # "T10",   # debugger
-#     # "TCH",   # type-checking
-#     # "UP",    # pyupgrade
-#     # "PLW1508", # pycodestyle warnings. invalid-envvar-default (PLW1508)#. https://docs.astral.sh/ruff/rules/invalid-envvar-default/
-#     # "ASYNC", # flake8-async
-#     # "TCH", # flake8-type-checking (TCH). https://docs.astral.sh/ruff/rules/#flake8-type-checking-tch
-# ]
 
 # SOURCE: https://github.com/ansible-collections/cloud-content-handbook/blob/9be137d78af4d1cc140b210f3058977164021c9d/proposals/ruff_transition.md
 # This section configures specific linting rules and options for ruff.
@@ -1555,18 +1513,8 @@ disable = [
     "wrong-exception-operation",                    # Warns about wrong operations on exception objects
 ]
 enable = [
-    # "useless-suppression",          # temporarily every now and then to clean them up
+
     "use-symbolic-message-instead",
-    # "c-extension-no-member",
-
-    # # pylint.extensions.docstyle
-    # "missing-class-docstring",
-    # "missing-docstring",
-    # "missing-function-docstring",
-    # "missing-module-docstring",
-
-    # # pylint.extensions.typing
-    # "deprecated-typing-alias",
 ]
 
 [tool.pylint.REPORTS]
@@ -1669,102 +1617,23 @@ reportUnusedClass = "warning"    # this is what we use in ad
 reportUnknownVariableType = false
 reportUnknownMemberType = false
 reportUnknownArgumentType = false
-
 # very strict errors
 reportUnusedCallResult = false
 reportImplicitStringConcatenation = false
 reportCallInDefaultInitializer = true
-# -------------------------------------------------------------------------
-
-
-# # TODO: Let's disable this for now
-# # ----------------------------------------------------------------------------
-# # GOOB_AI only values.  - start
-# # ----------------------------------------------------------------------------
-# reportUnnecessaryCast = true
-# typeCheckingMode = "basic"
-# reportReturnType = "none"
-# # [boolean or string, optional]: Generate or suppress diagnostics for general type inconsistencies, unsupported operations, argument/parameter mismatches, etc. This covers all of the basic type-checking rules not covered by other rules. It does not include syntax errors. The default value for this setting is "error".
-# # reportGeneralTypeIssues = "none"
-# reportArgumentType = "none"
 reportAttributeAccessIssue = "error"
-# reportOptionalMemberAccess = false
-# reportGeneralTypeIssues = true
-# reportCallIssue = "none"
-# # ----------------------------------------------------------------------------
-# # GOOB_AI only values.  - end
-# # ----------------------------------------------------------------------------
 
-
-# SOURCE: https://github.com/Ruzzy77/python-template/blob/57c8964f1efb2635d0bdca5684613a8d8736aed0/pyproject.toml#L168C1-L189C2
-################################################################################
-# Docformatter Configuration
-# (docformatter doesn't support custom config file names)
-# [tool.docformatter]
-# black             = true
-# blank             = true
-# recursive         = true
-# style             = "google"
-# wrap-descriptions = 80
-# wrap-summaries    = 80       # 0: disable wrapping
-
-# # make_summary_multiline = false
-# # pre_summary_newline    = false
-# # pre_summary_space      = false
-
-# exclude = [
-#     ".venv",
-#     "build",
-#     "dist",
-#     "docs",
-#     "examples",
-#     "notebooks",
-#     "sample*",
-#     "test*",
-# ]
 
 [tool.towncrier]
-# DISABLED: # package = "goob_ai"
-# DISABLED: # package_dir = "src"
-# DISABLED: # # filename = "doc/en/changelog.rst"
-# DISABLED: # # directory = "changelog/"
-# DISABLED: # # title_format = "pytest {version} ({project_date})"
-# DISABLED: # # template = "changelog/_template.rst"
-# DISABLED: #
-# DISABLED: # # NOTE: The types are declared because:
-# DISABLED: # # NOTE: - there is no mechanism to override just the value of
-# DISABLED: # # NOTE:   `tool.towncrier.type.misc.showcontent`;
-# DISABLED: # # NOTE: - and, we want to declare extra non-default types for
-# DISABLED: # # NOTE:   clarity and flexibility.
-# DISABLED: # # For writing into the correct file
-# DISABLED: # filename = "NEWS.rst"
-# DISABLED: # # For finding the news fragments
-# DISABLED: # directory = "news/"
-
-
-# DISABLED: # # For rendering properly for this project
-# DISABLED: # issue_format = "`#{issue} <https://github.com/pypa/pip/issues/{issue}>`_"
-# DISABLED: # template = "tools/news/template.rst"
-
-# Grouping of entries, within our changelog
-# type = [
-#   { name = "Deprecations and Removals", directory = "removal", showcontent = true },
-#   { name = "Features",                  directory = "feature", showcontent = true },
-#   { name = "Bug Fixes",                 directory = "bugfix",  showcontent = true },
-#   { name = "Vendored Libraries",        directory = "vendor",  showcontent = true },
-#   { name = "Improved Documentation",    directory = "doc",     showcontent = true },
-#   { name = "Process",                   directory = "process", showcontent = true },
-#   { name = "Trivial Changes",           directory = "trivial", showcontent = false },
-# ]
-name = "goob_ai"
-package = "goob_ai"
+name = "RAG_Techniques"
+package = "RAG_Techniques"
 package_dir = "src"
 directory = "changelog.d"
 filename = "CHANGELOG.md"
 start_string = "<!-- towncrier release notes start -->\n"
 template = "changelog.d/towncrier_template.md.jinja"
 title_format = ""
-issue_format = "[#{issue}](https://github.com/bossjones/goob_ai/issues/{issue})"
+issue_format = "[#{issue}](https://github.com/bossjones/RAG_Techniques/issues/{issue})"
 underlines = ["", "", ""]
 
 [[tool.towncrier.section]]

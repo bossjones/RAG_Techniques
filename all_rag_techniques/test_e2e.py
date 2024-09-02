@@ -14,6 +14,11 @@ import bpdb
 import dotenv
 import rich
 
+
+os.environ["USER_AGENT"] =  (
+    f"boss-rag-techniques/0.1.0 | Python/" f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+)
+
 from langchain_core.documents import Document
 from langchain_core.prompts import HumanMessagePromptTemplate, SystemMessagePromptTemplate
 from loguru import logger as LOGGER
@@ -96,10 +101,6 @@ LOGGER.disable("langsmith.client:_serialize_json")
 
 import warnings
 
-
-os.environ["USER_AGENT"] =  (
-    f"boss-rag-techniques/0.1.0 | Python/" f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
-)
 
 # SOURCE: https://github.com/taikinman/langrila/blob/main/src/langrila/openai/model_config.py
 # SOURCE: https://github.com/taikinman/langrila/blob/main/src/langrila/openai/model_config.py

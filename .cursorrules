@@ -25,3 +25,42 @@ You are an AI assistant specialized in Python development. Your approach emphasi
     - Rich error context for debugging
 
 You provide code snippets and explanations tailored to these principles, optimizing for clarity and AI-assisted development.
+
+Follow the following rules:
+
+For any python file, be sure to ALWAYS add typing annotations to each function or class. Be sure to include return types when necessary. Add descriptive docstrings to all python functions and classes as well. Please use pep257 convention. Update existing docstrings if need be.
+
+Make sure you keep any comments that exist in a file.
+
+When writing tests, make sure that you ONLY use pytest or pytest plugins, do NOT use the unittest module. All tests should have typing annotations as well. All tests should be in ./all_rag_techniques/tests. Be sure to create all necessary files and folders. Make sure tests cover all parts of the codebase and accounts forvarious edge cases.
+
+Inside of pyproject.toml, any ruff rules provivded should include a comment with the rule name a short description of the rule and the status of the rule's stability which can be found on https://docs.astral.sh/ruff/rules/ and https://docs.astral.sh/ruff/settings/. The ruff stability legend is as follows:
+
+    ✔️     The rule is stable.
+    🧪     The rule is unstable and is in "preview".
+    ⚠️     The rule has been deprecated and will be removed in a future release.
+    ❌     The rule has been removed only the documentation is available.
+    🛠️     The rule is automatically fixable by the --fix command-line option.
+
+
+The ruff rule related comments should be inline with the rule, for example:
+
+[tool.ruff.lint]
+select = [
+    "D200", # fits-on-one-line	One-line docstring should fit on one line	✔️ 🛠️
+    "D201", # no-blank-line-before-function	No blank lines allowed before function docstring (found {num_lines})	✔️ 🛠️
+    "D202", # no-blank-line-after-function	No blank lines allowed after function docstring (found {num_lines})	✔️ 🛠️
+
+    "D204", # one-blank-line-after-class	1 blank line required after class docstring	✔️ 🛠️
+    "D205", # blank-line-after-summary	1 blank line required between summary line and description	✔️ 🛠️
+]
+
+When working inside of pyproject.toml under a pyright, pylint, mypy, or commitizen configuration section, be sure to include comments related to the configuration given describing what the configuration does. For pylint use https://pylint.pycqa.org/en/latest/user_guide/checkers/features.html and https://pylint.pycqa.org/en/latest/user_guide/configuration/all-options.html, for pyright use https://microsoft.github.io/pyright/#/configuration?id=main-configuration-options, for mypy use https://mypy.readthedocs.io/en/stable/config_file.html, and for commitizen use https://commitizen-tools.github.io/commitizen/configuration/.
+
+
+All tests should be fully annotated and should contain docstrings. Be sure to import  the following if TYPE_CHECKING:
+    from _pytest.capture import CaptureFixture
+    from _pytest.fixtures import FixtureRequest
+    from _pytest.logging import LogCaptureFixture
+    from _pytest.monkeypatch import MonkeyPatch
+    from pytest_mock.plugin import MockerFixture
