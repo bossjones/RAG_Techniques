@@ -1463,32 +1463,97 @@ def summary_eval(runs: list[Run], examples: list[Example]) -> dict:
         return {"key": "pass", "score": True}
     else:
         return {"key": "pass", "score": False}
+# -------------------------
+# Retrival grading for summary evaluation
+# -------------------------
 
-# disabled for now
-with warnings.catch_warnings():
-    warnings.simplefilter("ignore")
-    print_panel("rag-summary-evaluation-testing")
-    experiment_results = evaluate(
-        predict_rag_answer,
-        data=dataset_name,
-        # evaluators=[answer_evaluator],
-        evaluators=[correct_answer],
-        summary_evaluators=[summary_eval],
-        experiment_prefix="rag-summary-evaluation-testing",
-        max_concurrency=EVAL_MAX_CONCURRENCY,
-        metadata={
-            "version": f"{DATASET_NAME}, {LLM_MODEL_NAME}",
-            "langchain_version": version("langchain"),
-            "langchain_community_version": version("langchain_community"),
-            "langchain_core_version": version("langchain_core"),
-            "langchain_openai_version": version("langchain_openai"),
-            "langchain_text_splitters_version": version("langchain_text_splitters"),
-            "langsmith_version": version("langsmith"),
-            "pydantic_version": version("pydantic"),
-            "pydantic_settings_version": version("pydantic_settings"),
-            "llm_run_config": LLM_RUN_CONFIG,
-        },
+### Retrieval Grader
+
+# FIXME: You need to read this and implement it. https://github.com/langchain-ai/langsmith-docs/blob/bed25769ecbf29809b8c227d4e37b5467d024921/docs/evaluation/faq/custom-evaluators.mdx#L339
+
+# SOURCE: https://www.youtube.com/watch?v=zMgrHzs_cAg&list=PLfaIDFEXuae0um8Fj0V4dHG37fGFU8Q5S&index=12
+# Data model
+class GradeDocuments(BaseModel):
+    """Binary score for relevance check on retrieved documents."""
+
+    binary_score: str = Field(
+        description="Documents are relevant to the question, 'yes' or 'no'"
     )
+
+def retrieval_grader_with_structured_output(question: str) -> dict:
+    # https://github.com/langchain-ai/langgraph/blob/a93775413281df9ddf6ba29cc388b2460d94b9af/examples/rag/langgraph_crag.ipynb#L144
+    # LLM with function call
+    llm = ChatOpenAI(model="gpt-3.5-turbo-0125", temperature=0)
+    structured_llm_grader = llm.with_structured_output(GradeDocuments)
+
+    # Prompt
+    system = """You are a grader assessing relevance of a retrieved document to a user question. \n
+        If the document contains keyword(s) or semantic meaning related to the question, grade it as relevant. \n
+        Give a binary score 'yes' or 'no' score to indicate whether the document is relevant to the question."""
+    grade_prompt = ChatPromptTemplate.from_messages(
+        [
+            ("system", system),
+            ("human", "Retrieved document: \n\n {context} \n\n User question: {question}"),
+        ]
+    )
+
+    retrieval_grader = grade_prompt | structured_llm_grader
+    question = "agent memory"
+    docs = retriever.get_relevant_documents(question)
+    doc_txt = docs[1].page_content
+    rich.print(retrieval_grader.invoke({"question": question, "document": doc_txt}))
+    # returns: binary_score='yes'
+
+def question_rewriter(question: str) -> str:
+    # SOURCE: https://github.com/langchain-ai/langgraph/blob/a93775413281df9ddf6ba29cc388b2460d94b9af/examples/rag/langgraph_crag.ipynb#L144
+    ### Question Re-writer
+
+    # LLM
+    llm = ChatOpenAI(model="gpt-3.5-turbo-0125", temperature=0)
+
+    # Prompt
+    system = """You a question re-writer that converts an input question to a better version that is optimized \n
+         for web search. Look at the input and try to reason about the underlying semantic intent / meaning."""
+    re_write_prompt = ChatPromptTemplate.from_messages(
+        [
+            ("system", system),
+            (
+                "human",
+                "Here is the initial question: \n\n {question} \n Formulate an improved question.",
+            ),
+        ]
+    )
+
+    question_rewriter = re_write_prompt | llm | StrOutputParser()
+    question_rewriter.invoke({"question": question})
+
+
+# # disabled for now
+# with warnings.catch_warnings():
+#     warnings.simplefilter("ignore")
+#     print_panel("rag-summary-evaluation-testing")
+#     experiment_results = evaluate(
+#         predict_rag_answer,
+#         data=dataset_name,
+#         # evaluators=[answer_evaluator],
+#         evaluators=[correct_answer],
+#         summary_evaluators=[summary_eval],
+#         experiment_prefix="rag-summary-evaluation-testing",
+#         max_concurrency=EVAL_MAX_CONCURRENCY,
+#         metadata={
+#             "version": f"{DATASET_NAME}, {LLM_MODEL_NAME}",
+#             "langchain_version": version("langchain"),
+#             "langchain_community_version": version("langchain_community"),
+#             "langchain_core_version": version("langchain_core"),
+#             "langchain_openai_version": version("langchain_openai"),
+#             "langchain_text_splitters_version": version("langchain_text_splitters"),
+#             "langsmith_version": version("langsmith"),
+#             "pydantic_version": version("pydantic"),
+#             "pydantic_settings_version": version("pydantic_settings"),
+#             "llm_run_config": LLM_RUN_CONFIG,
+#         },
+#     )
+
 
 # -------------------------
 # Back Testing
