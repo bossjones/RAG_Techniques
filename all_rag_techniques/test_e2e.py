@@ -358,6 +358,14 @@ def get_model_config(model_name: str = LLM_MODEL_NAME, embedding_model_name: str
         "embedding_model_dimensions": EMBEDDING_MODEL_DIMENSIONS_DATA[embedding_model_name],
     }
 
+def print_model_announcment(model, provider, retriever, llm):
+    update_text = f"\n\n[green]RagBot initialized with model:[/green] [yellow]{model}[/yellow]\n[green]provider:[/green] [yellow]{provider}[/yellow]\n[green]retriever:[/green] [yellow]{retriever}[/yellow]\n[green]llm:[/green] [yellow]{llm}[/yellow]\n\n"
+    console = Console()
+    panel_contents = Panel(update_text)
+    console.print()
+    console.print(panel_contents)
+    console.print()
+
 LLM_RUN_CONFIG = get_model_config()
 rich.print(LLM_RUN_CONFIG)
 
@@ -789,13 +797,6 @@ def print_panel(text: str):
     console.print(panel_contents)
     console.print()
 
-def print_model_announcment(model, provider, retriever, llm):
-    update_text = f"\n\n[green]RagBot initialized with model:[/green] [yellow]{model}[/yellow]\n[green]provider:[/green] [yellow]{provider}[/yellow]\n[green]retriever:[/green] [yellow]{retriever}[/yellow]\n[green]llm:[/green] [yellow]{llm}[/yellow]\n\n"
-    console = Console()
-    panel_contents = Panel(update_text)
-    console.print()
-    console.print(panel_contents)
-    console.print()
 
 
 try:
