@@ -765,8 +765,6 @@ ignore = [
     "PLR2004",
     "N812",
     "F841",
-    # "R1730",
-    # "I",      # isort, ruff doesn't have enough support for isort yet.
     "TID",     # flake8-tidy-imports (TID)#
     "F401",    # unused-import	{name} imported but unused; consider using importlib.util.find_spec to test for availability
     "F402",    # import-shadowed-by-loop-var	Import {name} from {row} shadowed by loop variable
@@ -896,7 +894,6 @@ max-complexity = 31 # C901: Recommended goal is 10
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401", "E402"]
 "**/{tests,docs,doc}/*" = ["E402"]
-
 "conf/*" = ["D"]
 "demo/*" = ["D"]
 "docs/*" = ["D"]
@@ -1024,8 +1021,6 @@ exclude = [
     "PLR2004",
     "N812",
     "F841",
-    # "R1730",
-    # "I",      # isort, ruff doesn't have enough support for isort yet.
     "TID",     # flake8-tidy-imports (TID)#
     "F401",    # unused-import	{name} imported but unused; consider using importlib.util.find_spec to test for availability
     "F402",    # import-shadowed-by-loop-var	Import {name} from {row} shadowed by loop variable
@@ -1160,42 +1155,6 @@ docstring-code-line-length = "dynamic"
 # E501 reports lines that exceed the length of 100
 max-doc-length = 120
 
-# ===========================[ PYLINT ]========================
-# Configuration for the pylint
-#
-# Usage:
-#   pylint --rcfile=<path/to/this/config/file> <path/to/file/to/check>
-#   pylint --rcfile=<path/to/this/config/file> <path/to/directory/to/check>
-#   pylint --rcfile=<path/to/this/config/file> <path/to/directory/to/check>/*.py
-#   pylint --rcfile=<path/to/this/config/file> <path/to/directory/to/check>/**/*.py
-#
-# VSCode (settings.json):
-#   "pylint.args": [
-#       "--rcfile", "<path/to/this/file>"
-#   ]
-
-# Sections:
-#   - [tool.pylint.main]
-#      Main configuration, load plugins
-#   - [tool.pylint.master]
-#      Allow list of modules
-#   - [tool.pylint.design]
-#      Code design (complexity)
-#   - [tool.pylint.typecheck]
-#      Type checking
-#   - [tool.pylint.basic]
-#      Naming conventions
-#   - [tool.pylint.code_style]
-#      Code style
-#   - [tool.pylint.spelling]
-#      Spell checker
-#      (Not working) - Alternates to use: code spell checker (VSCode extension)
-#   - [tool.pylint.similarities]
-#     Detects duplicated code
-#   - [tool.pylint.formatting]
-#      Code formatting, Code complexity, Code quality
-#   - [tool.pylint.messages_control]
-#      Enable/Disable messages
 [tool.pylint.MAIN]
 extension-pkg-allow-list = [
     "torch",
@@ -1534,9 +1493,7 @@ mixin-class-rgx = ".*[Mm]ix[Ii]n"
 [tool.pylint.FORMAT]
 expected-line-ending-format = "LF"
 
-# [tool.pylint.TYPING]
-# runtime-typing = false
-# Set to ``no`` if the app / library does **NOT* need to support runtime introspection of type annotations. If you use type annotations exclusively for type checking of an application, you're probably fine. For libraries, evaluate if some users want to access the type hints at runtime first, e.g., through typing.get_type_hints. Applies to Python versions 3.7 - 3.9*
+
 [tool.pylint.TYPING]
 runtime-typing = false
 
