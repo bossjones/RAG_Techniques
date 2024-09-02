@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # NOTE: THIS IS THE END ALL FILE FOR ALL OF THIS STUFF, DONT WORRY ABOUT THE NOTEBOOKS ETC, WORRY ABOUT THIS
 # NOTE: https://python.langchain.com/v0.2/docs/how_to/qa_sources/
+# pyright: ignore[reportAttributeAccessIssue]
 from __future__ import annotations
 
 import os
@@ -39,11 +40,17 @@ from rich.markdown import Markdown
 
 sys.path.append(os.path.abspath(os.path.join(os.getcwd(), '..'))) # Add the parent directory to the path since we work with notebooks
 import logging
+import os
+import sys
+import traceback
+import typing
 
 from importlib.metadata import version
-from typing import Any, List
+from typing import Any, Callable, Dict, List, Optional, Union
 
+import bpdb
 import bs4
+import dotenv
 import langsmith
 import openai
 import pysnooper
@@ -60,7 +67,7 @@ from langchain_community.document_loaders import WebBaseLoader
 from langchain_core.documents import Document
 from langchain_core.messages import AIMessage
 from langchain_core.output_parsers import StrOutputParser
-from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate, HumanMessagePromptTemplate, SystemMessagePromptTemplate
 from langchain_core.pydantic_v1 import BaseModel, Field
 from langchain_core.runnables import (
     ConfigurableField,
@@ -347,7 +354,17 @@ EMBEDDING_MODEL_DIMENSIONS: int = EMBEDDING_MODEL_DIMENSIONS_DATA[LLM_EMBEDDING_
 COMPARE_MODELS_FEATURE_FLAG = False
 
 
-def get_model_config(model_name: str = LLM_MODEL_NAME, embedding_model_name: str = LLM_EMBEDDING_MODEL_NAME):
+def get_model_config(model_name: str = LLM_MODEL_NAME, embedding_model_name: str = LLM_EMBEDDING_MODEL_NAME) -> dict[str, Any]:
+    """
+    Get the configuration for a specific model and embedding model.
+
+    Args:
+        model_name: The name of the model.
+        embedding_model_name: The name of the embedding model.
+
+    Returns:
+        A dictionary containing the model configuration.
+    """
     return {
         "model_name": model_name,
         "embedding_model_name": embedding_model_name,
@@ -359,7 +376,16 @@ def get_model_config(model_name: str = LLM_MODEL_NAME, embedding_model_name: str
         "embedding_model_dimensions": EMBEDDING_MODEL_DIMENSIONS_DATA[embedding_model_name],
     }
 
-def print_model_announcment(model, provider, retriever, llm):
+def print_model_announcment(model: str, provider: str, retriever: Any, llm: Any) -> None:
+    """
+    Print an announcement about the initialized RagBot.
+
+    Args:
+        model: The name of the model.
+        provider: The provider of the model.
+        retriever: The retriever object.
+        llm: The language model object.
+    """
     update_text = f"\n\n[green]RagBot initialized with model:[/green] [yellow]{model}[/yellow]\n[green]provider:[/green] [yellow]{provider}[/yellow]\n[green]retriever:[/green] [yellow]{retriever}[/yellow]\n[green]llm:[/green] [yellow]{llm}[/yellow]\n\n"
     console = Console()
     panel_contents = Panel(update_text)
@@ -376,7 +402,7 @@ path = "../data/Understanding_Climate_Change.pdf"
 # ### Encode document
 from langsmith.evaluation import EvaluationResults, LangChainStringEvaluator, evaluate  # noqa: I001
 
-def encode_pdf(path, chunk_size: int = CHUNK_SIZE, chunk_overlap: int = CHUNK_OVERLAP, add_start_index: bool = ADD_START_INDEX, llm_embedding_model_name: str = LLM_EMBEDDING_MODEL_NAME):
+def encode_pdf(path: str, chunk_size: int = CHUNK_SIZE, chunk_overlap: int = CHUNK_OVERLAP, add_start_index: bool = ADD_START_INDEX, llm_embedding_model_name: str = LLM_EMBEDDING_MODEL_NAME) -> FAISS:
     """
     Encodes a PDF book into a vector store using OpenAI embeddings.
 
@@ -384,6 +410,8 @@ def encode_pdf(path, chunk_size: int = CHUNK_SIZE, chunk_overlap: int = CHUNK_OV
         path: The path to the PDF file.
         chunk_size: The desired size of each text chunk.
         chunk_overlap: The amount of overlap between consecutive chunks.
+        add_start_index: Whether to add start index to the chunks.
+        llm_embedding_model_name: The name of the embedding model to use.
 
     Returns:
         A FAISS vector store containing the encoded book content.
@@ -421,14 +449,10 @@ chunks_vector_store = encode_pdf(path, chunk_size = CHUNK_SIZE, chunk_overlap = 
 
 
 # ### Create retriever
-
-
 chunks_query_retriever = chunks_vector_store.as_retriever(search_kwargs=DEFAULT_SEARCH_KWARGS)
 
 
 # ### Test retriever
-
-
 test_query = QUESTION_TO_ASK
 context = retrieve_context_per_question(test_query, chunks_query_retriever)
 show_context(context)
@@ -442,27 +466,64 @@ retriever = chunks_query_retriever
 
 
 class RAGResponse(BaseModel):
+    """
+    A class representing the response from a RAG (Retrieval-Augmented Generation) system.
+
+    Attributes:
+        question: The input question.
+        context: A list of relevant documents.
+        answer: The generated answer.
+    """
     question: str
     context: list[Document]
     answer: str
 
-def format_docs(docs: list[Document]):
+def format_docs(docs: list[Document]) -> str:
+    """
+    Format a list of documents into a single string.
+
+    Args:
+        docs: A list of Document objects.
+
+    Returns:
+        A string containing the formatted content of all documents.
+    """
     return "\n\n".join(doc.page_content for doc in docs)
 
-def get_all_prompts_in_chain(chain):
+def get_all_prompts_in_chain(chain: Any) -> None:
     """
-    Returns all the prompts in the chain.
+    Print all the prompts in the given chain.
+
+    Args:
+        chain: The chain object containing prompts.
     """
     # SOURCE: https://python.langchain.com/v0.2/docs/how_to/lcel_cheatsheet/
     for i, prompt in enumerate(chain.get_prompts()):
         rich.print(f"**prompt {i=}**\n")
         rich.print(prompt.pretty_repr())
         rich.print("\n" * 3)
-    # return chain.prompts
+
 
 class RagBot:
+    """
+    A class representing a RAG (Retrieval-Augmented Generation) bot.
 
-    def __init__(self, retriever = retriever, model: str = LLM_MODEL_NAME, provider: str = PROVIDER):
+    Attributes:
+        _provider: The provider of the language model.
+        _retriever: The retriever object for fetching relevant documents.
+        _client: The wrapped OpenAI client.
+        _model: The name of the language model.
+        _llm: The language model object.
+    """
+    def __init__(self, retriever: Any, model: str = LLM_MODEL_NAME, provider: str = PROVIDER):
+        """
+        Initialize the RagBot.
+
+        Args:
+            retriever: The retriever object for fetching relevant documents.
+            model: The name of the language model to use.
+            provider: The provider of the language model.
+        """
         self._provider = provider
         self._retriever = retriever
         # Wrapping the client instruments the LLM
@@ -490,30 +551,55 @@ class RagBot:
         print_model_announcment(self._model, self._provider, self._retriever, self._llm)
 
     @traceable()
-    def execute_chain(self, question: str):
+    def execute_chain(self, question: str) -> dict[str, Any]:
+        """
+        Execute the RAG chain for a given question.
+
+        Args:
+            question: The input question.
+
+        Returns:
+            A dictionary containing the response from the chain.
+        """
         chain = self.build_chain(question)
-        # FIXME: Evaluators will expect "answer" and "context"
-        # Evaluators will expect "answer" and "context"
-        # EG:
-        # return {
-        #     "answer": response.choices[0].message.content,
-        #     "context": [str(doc) for doc in docs],
-        # }
-        # return chain.invoke(question)
         return chain.invoke({"question": question})
 
     @traceable()
-    def display_chain(self, question: str):
+    def display_chain(self, question: str) -> None:
+        """
+        Display the ASCII representation of the chain graph.
+
+        Args:
+            question: The input question.
+        """
         chain = self.build_chain(question)
         chain.get_graph().print_ascii()
 
     @traceable()
-    async def aexecute_chain(self, question: str):
+    async def aexecute_chain(self, question: str) -> dict[str, Any]:
+        """
+        Asynchronously execute the RAG chain for a given question.
+
+        Args:
+            question: The input question.
+
+        Returns:
+            A dictionary containing the response from the chain.
+        """
         chain = self.build_chain(question)
         return await chain.ainvoke({"question": question})
 
     @traceable()
-    def stream_chain(self, question: str):
+    def stream_chain(self, question: str) -> str:
+        """
+        Stream the output of the RAG chain for a given question.
+
+        Args:
+            question: The input question.
+
+        Returns:
+            The concatenated output of the chain.
+        """
         chain = self.build_chain(question)
         chunks = []
         for chunk in chain.stream({"question": question}):
@@ -522,7 +608,16 @@ class RagBot:
         return "".join(chunks)
 
     @traceable()
-    async def astream_chain(self, question: str):
+    async def astream_chain(self, question: str) -> str:
+        """
+        Asynchronously stream the output of the RAG chain for a given question.
+
+        Args:
+            question: The input question.
+
+        Returns:
+            The concatenated output of the chain.
+        """
         chain = self.build_chain(question)
         chunks = []
         async for chunk in chain.astream({"question": question}):
@@ -533,17 +628,17 @@ class RagBot:
 
     # @pysnooper.snoop()
     @traceable()
-    def build_chain(self, question):
+    def build_chain(self, question: str):
         # NOTE: https://python.langchain.com/v0.2/docs/tutorials/rag/
         # NOTE: Look at this for inspiration
         """
-        Builds a RAG chain using LangChain's ChatPromptTemplate.from_messages.
+        Build the RAG chain for a given question.
 
         Args:
-            question: The user's question.
+            question: The input question.
 
         Returns:
-            A LangChain LLMChain object representing the RAG chain.
+            The built chain object.
         """
         if self._provider == "openai":
             LOGGER.info("OpenAI selected")
@@ -552,20 +647,6 @@ class RagBot:
                 "Use the following docs to produce a concise code solution to the user question.\n\n"
                 "## Docs\n\n{context}"
             )
-
-            # SystemMessage
-            # This represents a message with role "system", which tells the model how to behave. Not every model provider supports this.
-            # system_message_prompt = SystemMessagePromptTemplate.from_template(system_template)
-
-            # human_template = "{question}"
-            # human_message_prompt = HumanMessagePromptTemplate.from_template(human_template)
-
-            # chat_prompt = ChatPromptTemplate.from_messages([system_message_prompt, human_message_prompt])
-
-            # # chain = LLMChain(llm=self._llm, prompt=chat_prompt)
-
-            # question_answer_chain = create_stuff_documents_chain(self._llm, chat_prompt)
-            # # rag_chain = create_retrieval_chain(self._retriever, question_answer_chain)
             # READ THIS: https://python.langchain.com/v0.2/docs/how_to/qa_sources/
 
             # FIXME: I think this should be moved to the system template and human should only have a single variable eg {question}.
@@ -577,18 +658,6 @@ class RagBot:
             ])
 
             LOGGER.debug(base_prompt)
-
-            # Version 1
-            # rag_chain_from_docs = (
-            #     {
-            #         "question": RunnablePassthrough(), # input query. RunnablePassthrough() just passes the input through, ie the input query/question.
-            #         "context": retriever | format_docs, # context
-            #     }
-            #     | base_prompt   # format query and context into prompt
-            #     | self._llm # generate response
-            #     | StrOutputParser()  # coerce to string
-            # )
-
 
             rag_chain_from_docs = (
                 {
@@ -610,7 +679,6 @@ class RagBot:
                 answer=rag_chain_from_docs
             )
 
-            # chain.get_graph().print_ascii()
 
         elif self._provider == "anthropic":
             LOGGER.info("Anthropic selected")
@@ -713,44 +781,56 @@ bot_chain = rag_bot.build_chain(test_query)
 # 4. Return the relevant output values from the RAG chain
 
 
-def predict_rag_answer(example: dict):
-    """Use this for answer evaluation"""
+def predict_rag_answer(example: dict[str, Any]) -> dict[str, str]:
+    """
+    Predict the RAG answer for a given example.
+
+    Args:
+        example: A dictionary containing the input question.
+
+    Returns:
+        A dictionary containing the predicted answer.
+    """
     # bpdb.set_trace()
     response = rag_bot.get_answer(example["input_question"])
     # DISABLED: return {"answer": response["answer"]}
     # FIXME: THIS IS WHERE WE ARE GETTING 'TypeError: string indices must be integers'  because response is a string!!!
     return {"answer": response["answer"]}
 
-def predict_rag_answer_with_context(example: dict):
-    """Use this for evaluation of retrieved documents and hallucinations"""
+def predict_rag_answer_with_context(example: dict[str, Any]) -> dict[str, Union[str, list[Document]]]:
+    """
+    Predict the RAG answer with context for a given example.
+
+    Args:
+        example: A dictionary containing the input question.
+
+    Returns:
+        A dictionary containing the predicted answer and context.
+    """
     # bpdb.set_trace()
     response = rag_bot.get_answer(example["input_question"])
     return {"answer": response["answer"], "context": response["context"]}
 
 
-
-
-
-
-
 langsmith_client = langsmith.Client()
 dataset_name = DATASET_NAME
-
-
 
 examples = []
 runs = []
 
 # Grade prompt
-grade_prompt_answer_accuracy = prompt = hub.pull("langchain-ai/rag-answer-vs-reference")
+grade_prompt_answer_vs_reference = prompt = hub.pull("langchain-ai/rag-answer-vs-reference")
 
-def answer_evaluator(run: Run, example: Example) -> dict:
+def answer_evaluator(run: Run, example: Example) -> dict[str, Union[str, float]]:
     """
-    A simple evaluator for RAG answer accuracy.
+    Evaluate the answer accuracy of a RAG response.
 
-    Answer correctness.
+    Args:
+        run: The Run object containing the RAG output.
+        example: The Example object containing the input and reference output.
 
-    "Is the answer consistent with a reference answer?"
+    Returns:
+        A dictionary containing the evaluation key and score.
     """
     # bpdb.set_trace()
     examples.append(example)
@@ -765,7 +845,7 @@ def answer_evaluator(run: Run, example: Example) -> dict:
     llm = ChatOpenAI(model=LLM_MODEL_NAME, temperature=0, max_tokens=MAX_TOKENS, name="ChatOpenAI-rag-answer-v-reference", max_retries=MAX_RETRIES)
 
     # Structured prompt
-    answer_grader = grade_prompt_answer_accuracy | llm
+    answer_grader = grade_prompt_answer_vs_reference | llm
 
     # Run evaluator
     score = answer_grader.invoke({"question": input_question,
@@ -775,6 +855,54 @@ def answer_evaluator(run: Run, example: Example) -> dict:
 
     return {"key": "answer_v_reference_score", "score": score}
 
+def answer_evaluator_improved(root_run: Run, example: Example) -> dict:
+    """
+    A simple evaluator for RAG answer generation
+    """
+    # SOURCE: https://github.com/langchain-ai/langsmith-cookbook/blob/515f4140cb2576ea93051ea5bb4adec652e31893/introduction/langsmith_introduction.ipynb
+    # FIXME: Try this out
+
+    grade_rag_answer_accuracy = prompt = hub.pull("langchain-ai/rag-answer-accuracy")
+
+    # Get question, answer, and reference answer
+    rag_pipeline_run = next(
+        run for run in root_run.child_runs if run.name == "get_answer"
+    )
+    # rag_pipeline_run = next(run for run in root_run.child_runs if run.name == "get_answer")
+    # retrieve_run = next(run for run in rag_pipeline_run.child_runs if run.name == "retrieve_docs")
+    input_question = example.inputs["input_question"]
+    reference = example.outputs["output_answer"]
+    prediction = rag_pipeline_run.outputs["answer"]
+
+    # Data model for grade
+    class GradeAnswerScore(BaseModel):
+        """A numerical score for answer accuracy."""
+        score: int = Field(description="Answer matches the grond truth, score from 1 to 10")
+
+    # LLM with function call, use highest capacity model
+    llm = ChatOpenAI(model="gpt-4-turbo", temperature=0)
+    structured_llm_grader = llm.with_structured_output(GradeAnswerScore)
+
+    # Prompt
+    # system = """Is the Assistant's Answer grounded in and similar to the Ground Truth answer. Note that we do not expect all of the text
+    #         in code solution examples to be identical. We expect (1) code imports to be identical if the same import is used. (2) But, it is
+    #         ok if there are differences in the implementation itself. The main point is that the same concept is employed. A score of 1 means
+    #         that the Assistant answer is not at all conceptically grounded in and similar to the Ground Truth answer. A score of 5 means  that the Assistant
+    #         answer contains some information that is conceptically grounded in and similar to the Ground Truth answer. A score of 10 means that the
+    #         Assistant answer is fully conceptically grounded in and similar to the Ground Truth answer."""
+    system = grade_rag_answer_accuracy
+
+    grade_prompt = ChatPromptTemplate.from_messages(
+        [
+            ("system", system),
+            ("human", "Ground Truth answer: \n\n {reference} \n\n Assistant's Answer: {prediction}"),
+        ]
+    )
+
+    answer_grader = grade_prompt | structured_llm_grader
+    score = answer_grader.invoke({"reference": reference, "prediction": prediction})
+
+    return {"key": "answer_accuracy", "score": int(score.score) / 10}
 
 # Now, we kick off evaluation:
 #
@@ -782,15 +910,37 @@ def answer_evaluator(run: Run, example: Example) -> dict:
 # - `answer_evaluator`: Passes RAG chain answer, question, and ground truth answer to an evaluator
 # from rich.console import Console
 
+def print_markdown(text: str) -> None:
+    """
+    Print the given text as formatted Markdown.
 
+    This function takes a string of Markdown text and prints it to the console
+    with proper formatting.
 
-def print_markdown(text: str):
+    Args:
+        text (str): The Markdown text to be printed.
+
+    Returns:
+        None
+    """
     console = Console()
     md = Markdown(text)
     console.print()
     console.print(md)
 
-def print_panel(text: str):
+def print_panel(text: str) -> None:
+    """
+    Print the given text in a styled panel.
+
+    This function takes a string and prints it to the console inside a
+    green-colored panel for emphasis.
+
+    Args:
+        text (str): The text to be printed in the panel.
+
+    Returns:
+        None
+    """
     update_text = f"[green]{text}"
     console = Console()
     panel_contents = Panel(update_text)
@@ -836,7 +986,43 @@ except Exception as ex:
     traceback.print_tb(exc_traceback)
     bpdb.pm()
 
-# rich.print(runs)
+
+
+# try:
+#     with warnings.catch_warnings():
+#         print_panel("rag-answer-accuracy")
+#         warnings.simplefilter("ignore")
+#         # bpdb.set_trace()
+#         experiment_results = evaluate(
+#             predict_rag_answer,
+#             data=dataset_name,
+#             evaluators=[answer_evaluator_improved],
+#             experiment_prefix="rag-answer-accuracy",
+#             max_concurrency=EVAL_MAX_CONCURRENCY,
+#             metadata={
+#                 "version": f"{DATASET_NAME}, {LLM_MODEL_NAME}",
+#                 "langchain_version": version("langchain"),
+#                 "langchain_community_version": version("langchain_community"),
+#                 "langchain_core_version": version("langchain_core"),
+#                 "langchain_openai_version": version("langchain_openai"),
+#                 "langchain_text_splitters_version": version("langchain_text_splitters"),
+#                 "langsmith_version": version("langsmith"),
+#                 "pydantic_version": version("pydantic"),
+#                 "pydantic_settings_version": version("pydantic_settings"),
+#             },
+#         )
+
+#         # experiment_results
+# except Exception as ex:
+#     rich.print(f"{ex}")
+#     exc_type, exc_value, exc_traceback = sys.exc_info()
+#     rich.print(f"Error Class: {ex.__class__}")
+#     output = f"[UNEXPECTED] {type(ex).__name__}: {ex}"
+#     rich.print(output)
+#     rich.print(f"exc_type: {exc_type}")
+#     rich.print(f"exc_value: {exc_value}")
+#     traceback.print_tb(exc_traceback)
+#     bpdb.pm()
 
 
 # # Response vs input
@@ -850,11 +1036,16 @@ except Exception as ex:
 # Grade prompt
 grade_prompt_answer_helpfulness = prompt = hub.pull("langchain-ai/rag-answer-helpfulness")
 
-def answer_helpfulness_evaluator(run, example) -> dict:
+def answer_helpfulness_evaluator(run: Run, example: Example) -> dict[str, Union[str, float]]:
     """
-    A simple evaluator for RAG answer helpfulness.
+    Evaluate the helpfulness of a RAG answer.
 
-    "Does the answer help address the question?"
+    Args:
+        run: The Run object containing the RAG output.
+        example: The Example object containing the input.
+
+    Returns:
+        A dictionary containing the evaluation key and score.
     """
 
     # Get question, ground truth answer, RAG chain answer
@@ -914,13 +1105,25 @@ with warnings.catch_warnings():
 # Prompt
 grade_prompt_hallucinations = prompt = hub.pull("langchain-ai/rag-answer-hallucination")
 
-def answer_hallucination_evaluator(run, example) -> dict:
+def answer_hallucination_evaluator(run: Run, example: Example) -> dict[str, Union[str, float]]:
     """
-    A simple evaluator for generation hallucination.
+    Evaluate if the RAG answer is grounded in the retrieved documents.
 
-    Answer faithfulness.
+    This function checks whether the answer generated by the RAG system is based on
+    the information present in the retrieved documents, or if it's a hallucination.
 
-    "Is the answer grounded in the documents?"
+    Args:
+        run (Run): The Run object containing the RAG output.
+        example (Example): The Example object containing the input question and reference answer.
+
+    Returns:
+        Dict[str, Union[str, float]]: A dictionary containing the evaluation key "answer_hallucination"
+                                      and a score between 0 and 1, where 0 indicates complete hallucination
+                                      and 1 indicates the answer is fully grounded in the documents.
+
+    Note:
+        This function uses a language model to grade the answer based on its relevance
+        to the retrieved documents.
     """
 
     # RAG inputs
@@ -982,12 +1185,16 @@ with warnings.catch_warnings():
 # Grade prompt
 grade_prompt_doc_relevance = hub.pull("langchain-ai/rag-document-relevance")
 
-def docs_relevance_evaluator(run, example) -> dict:
+def docs_relevance_evaluator(run: Run, example: Example) -> dict[str, Union[str, float]]:
     """
-    A simple evaluator for document relevance
+    Evaluate the relevance of retrieved documents to the input question. Answers the question: "Are the documents relevant to the question?"
 
+    Args:
+        run: The Run object containing the RAG output.
+        example: The Example object containing the input.
 
-    "Are the documents relevant to the question?"
+    Returns:
+        A dictionary containing the evaluation key and score.
     """
 
     # RAG inputs
@@ -1082,9 +1289,25 @@ def document_relevance_grader(root_run: Run, example: Example) -> dict:
 
     return {"key": "document_relevance", "score": score}
 
-def answer_hallucination_grader(root_run: Run, example: Example) -> dict:
+def answer_hallucination_grader(root_run: Run, example: Example) -> dict[str, float]:
     """
-    A simple evaluator that checks to see the answer is grounded in the documents
+    Evaluate if the RAG answer is grounded in the retrieved documents.
+
+    This function checks whether the answer generated by the RAG system is based on
+    the information present in the retrieved documents, or if it's a hallucination.
+
+    Args:
+        root_run (Run): The root Run object containing the RAG pipeline execution details.
+        example (Example): The Example object containing the input question and reference answer.
+
+    Returns:
+        Dict[str, float]: A dictionary containing the evaluation key "answer_hallucination"
+                          and a score between 0 and 1, where 0 indicates complete hallucination
+                          and 1 indicates the answer is fully grounded in the documents.
+
+    Note:
+        This function uses a language model to grade the answer based on its relevance
+        to the retrieved documents.
     """
     # bpdb.set_trace()
 
@@ -1142,35 +1365,53 @@ with warnings.catch_warnings():
     )
 
 
+# -------------------------
+# Regression Testing
+# SOURCE: https://docs.smith.langchain.com/old/evaluation/faq/regression-testing
+# -------------------------
+def predict_rag_answer_openai_gpt4o_mini(example: dict):
+    """Use this for answer evaluation"""
+    gpt4o_mini_rag_bot = RagBot(retriever,provider="openai",model="gpt-4o-mini")
+    response = gpt4o_mini_rag_bot.get_answer(example["input_question"])
+    return {"answer": response["answer"]}
+
+def predict_rag_answer_openai_gpt4_turbo(example: dict):
+    """Use this for answer evaluation"""
+    gpt4_turbo_rag_bot = RagBot(retriever,provider="openai",model="gpt-4-turbo")
+    response = gpt4_turbo_rag_bot.get_answer(example["input_question"])
+    return {"answer": response["answer"]}
+
+def predict_rag_answer_openai_gpt4o(example: dict):
+    """Use this for answer evaluation"""
+    gpt4o_rag_bot = RagBot(retriever,provider="openai",model="gpt-4o")
+    response = gpt4o_rag_bot.get_answer(example["input_question"])
+    return {"answer": response["answer"]}
+
+def predict_rag_answer_openai_gpt35_turbo(example: dict):
+    """Use this for answer evaluation"""
+    gpt35_rag_bot = RagBot(retriever,provider="openai",model="gpt-3.5-turbo")
+    response = gpt35_rag_bot.get_answer(example["input_question"])
+    return {"answer": response["answer"]}
+
+def predict_rag_answer_claude_3_5_sonnet(example: dict):
+    """Use this for answer evaluation"""
+    rag_bot = RagBot(retriever, provider="anthropic", model="claude-3-5-sonnet-20240620")
+    response = rag_bot.get_answer(example["input_question"])
+    return {"answer": response["answer"]}
+
+def predict_rag_answer_claude_3_opus(example: dict):
+    """Use this for answer evaluation"""
+    rag_bot = RagBot(retriever, provider="anthropic", model="claude-3-opus-20240229")
+    response = rag_bot.get_answer(example["input_question"])
+    return {"answer": response["answer"]}
+
+def predict_rag_answer_claude_3_haiku(example: dict):
+    """Use this for answer evaluation"""
+    rag_bot = RagBot(retriever, provider="anthropic", model="claude-3-haiku-20240307")
+    response = rag_bot.get_answer(example["input_question"])
+    return {"answer": response["answer"]}
 
 if COMPARE_MODELS_FEATURE_FLAG:
-    # -------------------------
-    # Regression Testing
-    # SOURCE: https://docs.smith.langchain.com/old/evaluation/faq/regression-testing
-    # -------------------------
-    def predict_rag_answer_openai_gpt4o_mini(example: dict):
-        """Use this for answer evaluation"""
-        gpt4o_mini_rag_bot = RagBot(retriever,provider="openai",model="gpt-4o-mini")
-        response = gpt4o_mini_rag_bot.get_answer(example["input_question"])
-        return {"answer": response["answer"]}
-
-    def predict_rag_answer_claude_3_5_sonnet(example: dict):
-        """Use this for answer evaluation"""
-        rag_bot = RagBot(retriever, provider="anthropic", model="claude-3-5-sonnet-20240620")
-        response = rag_bot.get_answer(example["input_question"])
-        return {"answer": response["answer"]}
-
-    def predict_rag_answer_claude_3_opus(example: dict):
-        """Use this for answer evaluation"""
-        rag_bot = RagBot(retriever, provider="anthropic", model="claude-3-opus-20240229")
-        response = rag_bot.get_answer(example["input_question"])
-        return {"answer": response["answer"]}
-
-    def predict_rag_answer_claude_3_haiku(example: dict):
-        """Use this for answer evaluation"""
-        rag_bot = RagBot(retriever, provider="anthropic", model="claude-3-haiku-20240307")
-        response = rag_bot.get_answer(example["input_question"])
-        return {"answer": response["answer"]}
 
     # define evaluator
 
@@ -1329,6 +1570,114 @@ if COMPARE_MODELS_FEATURE_FLAG:
     #     evaluators=[evaluate_pairwise],
     # )
 
+
+# ---------------------------------------------------------
+# compare accuracy of different models
+# ---------------------------------------------------------
+
+try:
+    with warnings.catch_warnings():
+        print_panel("rag-answer-accuracy-gpt4o-mini")
+        warnings.simplefilter("ignore")
+        # bpdb.set_trace()
+        experiment_results_gpt4o_mini = evaluate(
+            predict_rag_answer_openai_gpt4o_mini,
+            data=dataset_name,
+            evaluators=[answer_evaluator_improved],
+            experiment_prefix="rag-answer-accuracy-gpt4o-mini",
+            max_concurrency=EVAL_MAX_CONCURRENCY,
+            metadata={
+                "version": f"{DATASET_NAME}, gpt-4o-mini, {LLM_MODEL_NAME}",
+                "langchain_version": version("langchain"),
+                "langchain_community_version": version("langchain_community"),
+                "langchain_core_version": version("langchain_core"),
+                "langchain_openai_version": version("langchain_openai"),
+                "langchain_text_splitters_version": version("langchain_text_splitters"),
+                "langsmith_version": version("langsmith"),
+                "pydantic_version": version("pydantic"),
+                "pydantic_settings_version": version("pydantic_settings"),
+            },
+        )
+    with warnings.catch_warnings():
+        print_panel("rag-answer-accuracy-gpt4o")
+        warnings.simplefilter("ignore")
+        # bpdb.set_trace()
+        experiment_results_gpt4o = evaluate(
+            predict_rag_answer_openai_gpt4o,
+            data=dataset_name,
+            evaluators=[answer_evaluator_improved],
+            experiment_prefix="rag-answer-accuracy-gpt4o",
+            max_concurrency=EVAL_MAX_CONCURRENCY,
+            metadata={
+                "version": f"{DATASET_NAME}, gpt-4o, {LLM_MODEL_NAME}",
+                "langchain_version": version("langchain"),
+                "langchain_community_version": version("langchain_community"),
+                "langchain_core_version": version("langchain_core"),
+                "langchain_openai_version": version("langchain_openai"),
+                "langchain_text_splitters_version": version("langchain_text_splitters"),
+                "langsmith_version": version("langsmith"),
+                "pydantic_version": version("pydantic"),
+                "pydantic_settings_version": version("pydantic_settings"),
+            },
+        )
+    with warnings.catch_warnings():
+        print_panel("rag-answer-accuracy-gpt4-turbo")
+        warnings.simplefilter("ignore")
+        # bpdb.set_trace()
+        experiment_results_gpt4_turbo = evaluate(
+            predict_rag_answer_openai_gpt4_turbo,
+            data=dataset_name,
+            evaluators=[answer_evaluator_improved],
+            experiment_prefix="rag-answer-accuracy-gpt4-turbo",
+            max_concurrency=EVAL_MAX_CONCURRENCY,
+            metadata={
+                "version": f"{DATASET_NAME}, gpt-4-turbo, {LLM_MODEL_NAME}",
+                "langchain_version": version("langchain"),
+                "langchain_community_version": version("langchain_community"),
+                "langchain_core_version": version("langchain_core"),
+                "langchain_openai_version": version("langchain_openai"),
+                "langchain_text_splitters_version": version("langchain_text_splitters"),
+                "langsmith_version": version("langsmith"),
+                "pydantic_version": version("pydantic"),
+                "pydantic_settings_version": version("pydantic_settings"),
+            },
+        )
+    with warnings.catch_warnings():
+        print_panel("rag-answer-accuracy-gpt35-turbo")
+        warnings.simplefilter("ignore")
+        # bpdb.set_trace()
+        experiment_results_gpt35_turbo = evaluate(
+            predict_rag_answer_openai_gpt35_turbo,
+            data=dataset_name,
+            evaluators=[answer_evaluator_improved],
+            experiment_prefix="rag-answer-accuracy-gpt35-turbo",
+            max_concurrency=EVAL_MAX_CONCURRENCY,
+            metadata={
+                "version": f"{DATASET_NAME}, gpt-3.5-turbo, {LLM_MODEL_NAME}",
+                "langchain_version": version("langchain"),
+                "langchain_community_version": version("langchain_community"),
+                "langchain_core_version": version("langchain_core"),
+                "langchain_openai_version": version("langchain_openai"),
+                "langchain_text_splitters_version": version("langchain_text_splitters"),
+                "langsmith_version": version("langsmith"),
+                "pydantic_version": version("pydantic"),
+                "pydantic_settings_version": version("pydantic_settings"),
+            },
+        )
+
+
+        # experiment_results
+except Exception as ex:
+    rich.print(f"{ex}")
+    exc_type, exc_value, exc_traceback = sys.exc_info()
+    rich.print(f"Error Class: {ex.__class__}")
+    output = f"[UNEXPECTED] {type(ex).__name__}: {ex}"
+    rich.print(output)
+    rich.print(f"exc_type: {exc_type}")
+    rich.print(f"exc_value: {exc_value}")
+    traceback.print_tb(exc_traceback)
+    bpdb.pm()
+
 # -------------------------
 # Helpfulness Testing
 # -------------------------
@@ -1417,9 +1766,14 @@ with warnings.catch_warnings():
 # The "embedding_distance" evaluator computes the distance between the text embeddings of the prediction and reference
 
 # FIXME: use console export text instead of console.rule
-def write_run_tree_to_file(fname: str, run: Run, example: Example):
+def write_run_tree_to_file(fname: str, run: Run, example: Example) -> None:
     """
     Write the run tree to a file in the current working directory.
+
+    Args:
+        fname: The base name for the output files.
+        run: The Run object to be written.
+        example: The Example object to be written.
     """
     run_name = f"../cached_evals/run-{fname}.txt"
     example_name = f"../cached_evals/example-{fname}.txt"
@@ -1442,7 +1796,17 @@ def write_run_tree_to_file(fname: str, run: Run, example: Example):
 # Summary Evaluation Testing
 # -------------------------
 # Row-level evaluator
-def correct_answer(run: Run, example: Example) -> dict:
+def correct_answer(run: Run, example: Example) -> dict[str, int]:
+    """
+    Evaluate if the RAG answer matches the reference answer.
+
+    Args:
+        run: The Run object containing the RAG output.
+        example: The Example object containing the reference output.
+
+    Returns:
+        A dictionary containing the evaluation score.
+    """
     write_run_tree_to_file("correct_answer", run, example)
     # SOURCE: https://docs.smith.langchain.com/old/cookbook/testing-examples/movie-demo#our-pipeline
     # SOURCE: https://docs.smith.langchain.com/how_to_guides/evaluation/evaluate_llm_application#use-a-summary-evaluator
@@ -1455,7 +1819,17 @@ def correct_answer(run: Run, example: Example) -> dict:
     # prediction = run.outputs["answer"]
     return {"score": int(score)}
 
-def summary_eval(runs: list[Run], examples: list[Example]) -> dict:
+def summary_eval(runs: list[Run], examples: list[Example]) -> dict[str, Union[str, bool]]:
+    """
+    Perform a summary evaluation on a list of runs and examples.
+
+    Args:
+        runs: A list of Run objects.
+        examples: A list of Example objects.
+
+    Returns:
+        A dictionary containing the evaluation key and pass/fail score.
+    """
     # write_run_tree_to_file("summary-eval", runs, examples)
     correct = 0
     for i, run in enumerate(runs):
@@ -1476,13 +1850,27 @@ def summary_eval(runs: list[Run], examples: list[Example]) -> dict:
 # SOURCE: https://www.youtube.com/watch?v=zMgrHzs_cAg&list=PLfaIDFEXuae0um8Fj0V4dHG37fGFU8Q5S&index=12
 # Data model
 class GradeDocuments(BaseModel):
-    """Binary score for relevance check on retrieved documents."""
+    """
+    A class representing the binary score for relevance check on retrieved documents.
+
+    Attributes:
+        binary_score: A string indicating whether documents are relevant ('yes' or 'no').
+    """
 
     binary_score: str = Field(
         description="Documents are relevant to the question, 'yes' or 'no'"
     )
 
-def retrieval_grader_with_structured_output(question: str) -> dict:
+def retrieval_grader_with_structured_output(question: str) -> dict[str, str]:
+    """
+    Grade the relevance of retrieved documents to a given question.
+
+    Args:
+        question: The input question.
+
+    Returns:
+        A dictionary containing the binary relevance score.
+    """
     # https://github.com/langchain-ai/langgraph/blob/a93775413281df9ddf6ba29cc388b2460d94b9af/examples/rag/langgraph_crag.ipynb#L144
     # LLM with function call
     llm = ChatOpenAI(model="gpt-3.5-turbo-0125", temperature=0)
@@ -1507,6 +1895,15 @@ def retrieval_grader_with_structured_output(question: str) -> dict:
     # returns: binary_score='yes'
 
 def question_rewriter(question: str) -> str:
+    """
+    Rewrite a given question to optimize it for web search.
+
+    Args:
+        question: The input question.
+
+    Returns:
+        The rewritten question.
+    """
     # SOURCE: https://github.com/langchain-ai/langgraph/blob/a93775413281df9ddf6ba29cc388b2460d94b9af/examples/rag/langgraph_crag.ipynb#L144
     ### Question Re-writer
 

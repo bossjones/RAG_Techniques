@@ -4,6 +4,7 @@
 # pylint: disable=consider-using-tuple
 # pyright: ignore[reportOperatorIssue]
 # pyright: ignore[reportOptionalIterable]
+
 # SOURCE: https://betterstack.com/community/guides/logging/loguru/
 
 # FIXME: https://github.com/sweepai/sweep/blob/7d93c612568b8febd4aaf3c75810794bc10c09ae/sweepai/utils/event_logger.py#L7
