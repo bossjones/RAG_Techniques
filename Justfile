@@ -235,3 +235,4 @@ typecheck:
 install:
 	pip install setuptools "cython >= 0.28"
 	pip install -U -r requirements.txt
+	pip freeze > requirements.lock

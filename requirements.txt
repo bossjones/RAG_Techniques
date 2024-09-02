@@ -226,3 +226,4 @@ langchain-cli>=0.0.22
 nbformat
 grandalf
 rapidfuzz
+ragas
