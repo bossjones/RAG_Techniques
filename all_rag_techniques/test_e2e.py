@@ -351,8 +351,16 @@ rich.print(COMPLETION_COST_PER_TOKEN)
 EMBEDDING_MAX_TOKENS: int = EMBEDDING_MODEL_DIMENSIONS_DATA[LLM_EMBEDDING_MODEL_NAME]
 EMBEDDING_MODEL_DIMENSIONS: int = EMBEDDING_MODEL_DIMENSIONS_DATA[LLM_EMBEDDING_MODEL_NAME]
 
+# USE THIS TO ENABLE OR DISABLE CERTAIN EVALUATIONS
 COMPARE_MODELS_FEATURE_FLAG = False
-
+RAG_ANSWER_V_REFERENCE_FEATURE_FLAG = False
+HELPFULNESS_FEATURE_FLAG = False
+RAG_ANSWER_HALLUCINATION_FEATURE_FLAG = False
+RAG_DOC_RELEVANCE_FEATURE_FLAG = False
+RAG_DOC_RELEVANCE_AND_HALLUCINATION_FEATURE_FLAG = False
+RAG_ANSWER_ACCURACY_FEATURE_FLAG = True
+HELPFULNESS_TESTING_FEATURE_FLAG = False
+RAG_STRING_EMBEDDING_DISTANCE_METRICS_FEATURE_FLAG = False
 
 def get_model_config(model_name: str = LLM_MODEL_NAME, embedding_model_name: str = LLM_EMBEDDING_MODEL_NAME) -> dict[str, Any]:
     """
@@ -859,6 +867,7 @@ def answer_evaluator_improved(root_run: Run, example: Example) -> dict:
     """
     A simple evaluator for RAG answer generation
     """
+    # Custom evaluators are simple functions that take a `Run` and an `Example` and return a dictionary with the evaluation results. For example:
     # SOURCE: https://github.com/langchain-ai/langsmith-cookbook/blob/515f4140cb2576ea93051ea5bb4adec652e31893/introduction/langsmith_introduction.ipynb
     # FIXME: Try this out
 
@@ -868,6 +877,7 @@ def answer_evaluator_improved(root_run: Run, example: Example) -> dict:
     rag_pipeline_run = next(
         run for run in root_run.child_runs if run.name == "get_answer"
     )
+    context = "\n\n".join(doc.page_content for doc in rag_pipeline_run.outputs["context"])
     # rag_pipeline_run = next(run for run in root_run.child_runs if run.name == "get_answer")
     # retrieve_run = next(run for run in rag_pipeline_run.child_runs if run.name == "retrieve_docs")
     input_question = example.inputs["input_question"]
@@ -880,17 +890,17 @@ def answer_evaluator_improved(root_run: Run, example: Example) -> dict:
         score: int = Field(description="Answer matches the grond truth, score from 1 to 10")
 
     # LLM with function call, use highest capacity model
-    llm = ChatOpenAI(model="gpt-4-turbo", temperature=0)
+    llm = ChatOpenAI(model="gpt-4-turbo", temperature=0,  max_tokens=MAX_TOKENS, name="ChatOpenAI-rag-document-relevance", max_retries=MAX_RETRIES)
     structured_llm_grader = llm.with_structured_output(GradeAnswerScore)
 
     # Prompt
-    # system = """Is the Assistant's Answer grounded in and similar to the Ground Truth answer. Note that we do not expect all of the text
-    #         in code solution examples to be identical. We expect (1) code imports to be identical if the same import is used. (2) But, it is
-    #         ok if there are differences in the implementation itself. The main point is that the same concept is employed. A score of 1 means
-    #         that the Assistant answer is not at all conceptically grounded in and similar to the Ground Truth answer. A score of 5 means  that the Assistant
-    #         answer contains some information that is conceptically grounded in and similar to the Ground Truth answer. A score of 10 means that the
-    #         Assistant answer is fully conceptically grounded in and similar to the Ground Truth answer."""
-    system = grade_rag_answer_accuracy
+    system = """Is the Assistant's Answer grounded in and similar to the Ground Truth answer. Note that we do not expect all of the text
+            in code solution examples to be identical. We expect (1) code imports to be identical if the same import is used. (2) But, it is
+            ok if there are differences in the implementation itself. The main point is that the same concept is employed. A score of 1 means
+            that the Assistant answer is not at all conceptically grounded in and similar to the Ground Truth answer. A score of 5 means  that the Assistant
+            answer contains some information that is conceptically grounded in and similar to the Ground Truth answer. A score of 10 means that the
+            Assistant answer is fully conceptically grounded in and similar to the Ground Truth answer."""
+    # system = grade_rag_answer_accuracy
 
     grade_prompt = ChatPromptTemplate.from_messages(
         [
@@ -949,42 +959,42 @@ def print_panel(text: str) -> None:
     console.print()
 
 
+if RAG_ANSWER_V_REFERENCE_FEATURE_FLAG:
+    try:
+        with warnings.catch_warnings():
+            print_panel("rag-answer-v-reference")
+            warnings.simplefilter("ignore")
+            # bpdb.set_trace()
+            experiment_results = evaluate(
+                predict_rag_answer,
+                data=dataset_name,
+                evaluators=[answer_evaluator],
+                experiment_prefix="rag-answer-v-reference",
+                max_concurrency=EVAL_MAX_CONCURRENCY,
+                metadata={
+                    "version": f"{DATASET_NAME}, {LLM_MODEL_NAME}",
+                    "langchain_version": version("langchain"),
+                    "langchain_community_version": version("langchain_community"),
+                    "langchain_core_version": version("langchain_core"),
+                    "langchain_openai_version": version("langchain_openai"),
+                    "langchain_text_splitters_version": version("langchain_text_splitters"),
+                    "langsmith_version": version("langsmith"),
+                    "pydantic_version": version("pydantic"),
+                    "pydantic_settings_version": version("pydantic_settings"),
+                },
+            )
 
-try:
-    with warnings.catch_warnings():
-        print_panel("rag-answer-v-reference")
-        warnings.simplefilter("ignore")
-        # bpdb.set_trace()
-        experiment_results = evaluate(
-            predict_rag_answer,
-            data=dataset_name,
-            evaluators=[answer_evaluator],
-            experiment_prefix="rag-answer-v-reference",
-            max_concurrency=EVAL_MAX_CONCURRENCY,
-            metadata={
-                "version": f"{DATASET_NAME}, {LLM_MODEL_NAME}",
-                "langchain_version": version("langchain"),
-                "langchain_community_version": version("langchain_community"),
-                "langchain_core_version": version("langchain_core"),
-                "langchain_openai_version": version("langchain_openai"),
-                "langchain_text_splitters_version": version("langchain_text_splitters"),
-                "langsmith_version": version("langsmith"),
-                "pydantic_version": version("pydantic"),
-                "pydantic_settings_version": version("pydantic_settings"),
-            },
-        )
-
-        # experiment_results
-except Exception as ex:
-    rich.print(f"{ex}")
-    exc_type, exc_value, exc_traceback = sys.exc_info()
-    rich.print(f"Error Class: {ex.__class__}")
-    output = f"[UNEXPECTED] {type(ex).__name__}: {ex}"
-    rich.print(output)
-    rich.print(f"exc_type: {exc_type}")
-    rich.print(f"exc_value: {exc_value}")
-    traceback.print_tb(exc_traceback)
-    bpdb.pm()
+            # experiment_results
+    except Exception as ex:
+        rich.print(f"{ex}")
+        exc_type, exc_value, exc_traceback = sys.exc_info()
+        rich.print(f"Error Class: {ex.__class__}")
+        output = f"[UNEXPECTED] {type(ex).__name__}: {ex}"
+        rich.print(output)
+        rich.print(f"exc_type: {exc_type}")
+        rich.print(f"exc_value: {exc_value}")
+        traceback.print_tb(exc_traceback)
+        bpdb.pm()
 
 
 
@@ -1067,28 +1077,29 @@ def answer_helpfulness_evaluator(run: Run, example: Example) -> dict[str, Union[
     return {"key": "answer_helpfulness_score", "score": score}
 
 
-with warnings.catch_warnings():
-    warnings.simplefilter("ignore")
-    print_panel("rag-answer-helpfulness")
-    experiment_results = evaluate(
-        predict_rag_answer,
-        data=dataset_name,
-        evaluators=[answer_helpfulness_evaluator],
-        experiment_prefix="rag-answer-helpfulness",
-        max_concurrency=EVAL_MAX_CONCURRENCY,
-        metadata={
-            "version": f"{DATASET_NAME}, {LLM_MODEL_NAME}",
-            "langchain_version": version("langchain"),
-            "langchain_community_version": version("langchain_community"),
-            "langchain_core_version": version("langchain_core"),
-            "langchain_openai_version": version("langchain_openai"),
-            "langchain_text_splitters_version": version("langchain_text_splitters"),
-            "langsmith_version": version("langsmith"),
-            "pydantic_version": version("pydantic"),
-            "pydantic_settings_version": version("pydantic_settings"),
-            "llm_run_config": LLM_RUN_CONFIG,
-        },
-    )
+if HELPFULNESS_FEATURE_FLAG:
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        print_panel("rag-answer-helpfulness")
+        experiment_results = evaluate(
+            predict_rag_answer,
+            data=dataset_name,
+            evaluators=[answer_helpfulness_evaluator],
+            experiment_prefix="rag-answer-helpfulness",
+            max_concurrency=EVAL_MAX_CONCURRENCY,
+            metadata={
+                "version": f"{DATASET_NAME}, {LLM_MODEL_NAME}",
+                "langchain_version": version("langchain"),
+                "langchain_community_version": version("langchain_community"),
+                "langchain_core_version": version("langchain_core"),
+                "langchain_openai_version": version("langchain_openai"),
+                "langchain_text_splitters_version": version("langchain_text_splitters"),
+                "langsmith_version": version("langsmith"),
+                "pydantic_version": version("pydantic"),
+                "pydantic_settings_version": version("pydantic_settings"),
+                "llm_run_config": LLM_RUN_CONFIG,
+            },
+        )
 
 
 # ### **Response vs retrieved docs**[](https://docs.smith.langchain.com/tutorials/Developers/rag#response-vs-retrieved-docs)
@@ -1147,28 +1158,29 @@ def answer_hallucination_evaluator(run: Run, example: Example) -> dict[str, Unio
     return {"key": "answer_hallucination", "score": score}
 
 
-with warnings.catch_warnings():
-    warnings.simplefilter("ignore")
-    print_panel("rag-answer-hallucination")
-    experiment_results = evaluate(
-        predict_rag_answer_with_context,
-        data=dataset_name,
-        evaluators=[answer_hallucination_evaluator],
-        experiment_prefix="rag-answer-hallucination",
-        max_concurrency=EVAL_MAX_CONCURRENCY,
-        metadata={
-            "version": f"{DATASET_NAME}, {LLM_MODEL_NAME}",
-            "langchain_version": version("langchain"),
-            "langchain_community_version": version("langchain_community"),
-            "langchain_core_version": version("langchain_core"),
-            "langchain_openai_version": version("langchain_openai"),
-            "langchain_text_splitters_version": version("langchain_text_splitters"),
-            "langsmith_version": version("langsmith"),
-            "pydantic_version": version("pydantic"),
-            "pydantic_settings_version": version("pydantic_settings"),
-            "llm_run_config": LLM_RUN_CONFIG,
-        },
-    )
+if RAG_ANSWER_HALLUCINATION_FEATURE_FLAG:
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        print_panel("rag-answer-hallucination")
+        experiment_results = evaluate(
+            predict_rag_answer_with_context,
+            data=dataset_name,
+            evaluators=[answer_hallucination_evaluator],
+            experiment_prefix="rag-answer-hallucination",
+            max_concurrency=EVAL_MAX_CONCURRENCY,
+            metadata={
+                "version": f"{DATASET_NAME}, {LLM_MODEL_NAME}",
+                "langchain_version": version("langchain"),
+                "langchain_community_version": version("langchain_community"),
+                "langchain_core_version": version("langchain_core"),
+                "langchain_openai_version": version("langchain_openai"),
+                "langchain_text_splitters_version": version("langchain_text_splitters"),
+                "langsmith_version": version("langsmith"),
+                "pydantic_version": version("pydantic"),
+                "pydantic_settings_version": version("pydantic_settings"),
+                "llm_run_config": LLM_RUN_CONFIG,
+            },
+        )
 
 
 # ### **Retrieved docs vs input**[](https://docs.smith.langchain.com/tutorials/Developers/rag#retrieved-docs-vs-input)
@@ -1215,28 +1227,29 @@ def docs_relevance_evaluator(run: Run, example: Example) -> dict[str, Union[str,
     return {"key": "document_relevance", "score": score}
 
 
-with warnings.catch_warnings():
-    warnings.simplefilter("ignore")
-    print_panel("rag-doc-relevance")
-    experiment_results = evaluate(
-        predict_rag_answer_with_context,
-        data=dataset_name,
-        evaluators=[docs_relevance_evaluator],
-        experiment_prefix="rag-doc-relevance",
-        max_concurrency=EVAL_MAX_CONCURRENCY,
-        metadata={
-            "version": f"{DATASET_NAME}, {LLM_MODEL_NAME}",
-            "langchain_version": version("langchain"),
-            "langchain_community_version": version("langchain_community"),
-            "langchain_core_version": version("langchain_core"),
-            "langchain_openai_version": version("langchain_openai"),
-            "langchain_text_splitters_version": version("langchain_text_splitters"),
-            "langsmith_version": version("langsmith"),
-            "pydantic_version": version("pydantic"),
-            "pydantic_settings_version": version("pydantic_settings"),
-            "llm_run_config": LLM_RUN_CONFIG,
-        },
-    )
+if RAG_DOC_RELEVANCE_FEATURE_FLAG:
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        print_panel("rag-doc-relevance")
+        experiment_results = evaluate(
+            predict_rag_answer_with_context,
+            data=dataset_name,
+            evaluators=[docs_relevance_evaluator],
+            experiment_prefix="rag-doc-relevance",
+            max_concurrency=EVAL_MAX_CONCURRENCY,
+            metadata={
+                "version": f"{DATASET_NAME}, {LLM_MODEL_NAME}",
+                "langchain_version": version("langchain"),
+                "langchain_community_version": version("langchain_community"),
+                "langchain_core_version": version("langchain_core"),
+                "langchain_openai_version": version("langchain_openai"),
+                "langchain_text_splitters_version": version("langchain_text_splitters"),
+                "langsmith_version": version("langsmith"),
+                "pydantic_version": version("pydantic"),
+                "pydantic_settings_version": version("pydantic_settings"),
+                "llm_run_config": LLM_RUN_CONFIG,
+            },
+        )
 
 
 # ## Evaluating intermediate steps[](https://docs.smith.langchain.com/tutorials/Developers/rag#evaluating-intermediate-steps)
@@ -1340,29 +1353,29 @@ def answer_hallucination_grader(root_run: Run, example: Example) -> dict[str, fl
 
     return {"key": "answer_hallucination", "score": score}
 
-
-with warnings.catch_warnings():
-    warnings.simplefilter("ignore")
-    print_panel("rag-doc-relevance-and-hallucination-grader")
-    experiment_results = evaluate(
-        predict_rag_answer,
-        data=dataset_name,
-        evaluators=[document_relevance_grader, answer_hallucination_grader],
-        experiment_prefix="rag-doc-relevance-and-hallucination-grader",
-        max_concurrency=EVAL_MAX_CONCURRENCY,
-        metadata={
-            "version": f"{DATASET_NAME}, {LLM_MODEL_NAME}",
-            "langchain_version": version("langchain"),
-            "langchain_community_version": version("langchain_community"),
-            "langchain_core_version": version("langchain_core"),
-            "langchain_openai_version": version("langchain_openai"),
-            "langchain_text_splitters_version": version("langchain_text_splitters"),
-            "langsmith_version": version("langsmith"),
-            "pydantic_version": version("pydantic"),
-            "pydantic_settings_version": version("pydantic_settings"),
-            "llm_run_config": LLM_RUN_CONFIG,
-        },
-    )
+if RAG_DOC_RELEVANCE_AND_HALLUCINATION_FEATURE_FLAG:
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        print_panel("rag-doc-relevance-and-hallucination-grader")
+        experiment_results = evaluate(
+            predict_rag_answer,
+            data=dataset_name,
+            evaluators=[document_relevance_grader, answer_hallucination_grader],
+            experiment_prefix="rag-doc-relevance-and-hallucination-grader",
+            max_concurrency=EVAL_MAX_CONCURRENCY,
+            metadata={
+                "version": f"{DATASET_NAME}, {LLM_MODEL_NAME}",
+                "langchain_version": version("langchain"),
+                "langchain_community_version": version("langchain_community"),
+                "langchain_core_version": version("langchain_core"),
+                "langchain_openai_version": version("langchain_openai"),
+                "langchain_text_splitters_version": version("langchain_text_splitters"),
+                "langsmith_version": version("langsmith"),
+                "pydantic_version": version("pydantic"),
+                "pydantic_settings_version": version("pydantic_settings"),
+                "llm_run_config": LLM_RUN_CONFIG,
+            },
+        )
 
 
 # -------------------------
@@ -1574,109 +1587,109 @@ if COMPARE_MODELS_FEATURE_FLAG:
 # ---------------------------------------------------------
 # compare accuracy of different models
 # ---------------------------------------------------------
+if RAG_ANSWER_ACCURACY_FEATURE_FLAG:
+    try:
+        with warnings.catch_warnings():
+            print_panel("rag-answer-accuracy-gpt4o-mini")
+            warnings.simplefilter("ignore")
+            # bpdb.set_trace()
+            experiment_results_gpt4o_mini = evaluate(
+                predict_rag_answer_openai_gpt4o_mini,
+                data=dataset_name,
+                evaluators=[answer_evaluator_improved],
+                experiment_prefix="rag-answer-accuracy-gpt4o-mini",
+                max_concurrency=EVAL_MAX_CONCURRENCY,
+                metadata={
+                    "version": f"{DATASET_NAME}, gpt-4o-mini, {LLM_MODEL_NAME}",
+                    "langchain_version": version("langchain"),
+                    "langchain_community_version": version("langchain_community"),
+                    "langchain_core_version": version("langchain_core"),
+                    "langchain_openai_version": version("langchain_openai"),
+                    "langchain_text_splitters_version": version("langchain_text_splitters"),
+                    "langsmith_version": version("langsmith"),
+                    "pydantic_version": version("pydantic"),
+                    "pydantic_settings_version": version("pydantic_settings"),
+                },
+            )
+        with warnings.catch_warnings():
+            print_panel("rag-answer-accuracy-gpt4o")
+            warnings.simplefilter("ignore")
+            # bpdb.set_trace()
+            experiment_results_gpt4o = evaluate(
+                predict_rag_answer_openai_gpt4o,
+                data=dataset_name,
+                evaluators=[answer_evaluator_improved],
+                experiment_prefix="rag-answer-accuracy-gpt4o",
+                max_concurrency=EVAL_MAX_CONCURRENCY,
+                metadata={
+                    "version": f"{DATASET_NAME}, gpt-4o, {LLM_MODEL_NAME}",
+                    "langchain_version": version("langchain"),
+                    "langchain_community_version": version("langchain_community"),
+                    "langchain_core_version": version("langchain_core"),
+                    "langchain_openai_version": version("langchain_openai"),
+                    "langchain_text_splitters_version": version("langchain_text_splitters"),
+                    "langsmith_version": version("langsmith"),
+                    "pydantic_version": version("pydantic"),
+                    "pydantic_settings_version": version("pydantic_settings"),
+                },
+            )
+        with warnings.catch_warnings():
+            print_panel("rag-answer-accuracy-gpt4-turbo")
+            warnings.simplefilter("ignore")
+            # bpdb.set_trace()
+            experiment_results_gpt4_turbo = evaluate(
+                predict_rag_answer_openai_gpt4_turbo,
+                data=dataset_name,
+                evaluators=[answer_evaluator_improved],
+                experiment_prefix="rag-answer-accuracy-gpt4-turbo",
+                max_concurrency=EVAL_MAX_CONCURRENCY,
+                metadata={
+                    "version": f"{DATASET_NAME}, gpt-4-turbo, {LLM_MODEL_NAME}",
+                    "langchain_version": version("langchain"),
+                    "langchain_community_version": version("langchain_community"),
+                    "langchain_core_version": version("langchain_core"),
+                    "langchain_openai_version": version("langchain_openai"),
+                    "langchain_text_splitters_version": version("langchain_text_splitters"),
+                    "langsmith_version": version("langsmith"),
+                    "pydantic_version": version("pydantic"),
+                    "pydantic_settings_version": version("pydantic_settings"),
+                },
+            )
+        with warnings.catch_warnings():
+            print_panel("rag-answer-accuracy-gpt35-turbo")
+            warnings.simplefilter("ignore")
+            # bpdb.set_trace()
+            experiment_results_gpt35_turbo = evaluate(
+                predict_rag_answer_openai_gpt35_turbo,
+                data=dataset_name,
+                evaluators=[answer_evaluator_improved],
+                experiment_prefix="rag-answer-accuracy-gpt35-turbo",
+                max_concurrency=EVAL_MAX_CONCURRENCY,
+                metadata={
+                    "version": f"{DATASET_NAME}, gpt-3.5-turbo, {LLM_MODEL_NAME}",
+                    "langchain_version": version("langchain"),
+                    "langchain_community_version": version("langchain_community"),
+                    "langchain_core_version": version("langchain_core"),
+                    "langchain_openai_version": version("langchain_openai"),
+                    "langchain_text_splitters_version": version("langchain_text_splitters"),
+                    "langsmith_version": version("langsmith"),
+                    "pydantic_version": version("pydantic"),
+                    "pydantic_settings_version": version("pydantic_settings"),
+                },
+            )
 
-try:
-    with warnings.catch_warnings():
-        print_panel("rag-answer-accuracy-gpt4o-mini")
-        warnings.simplefilter("ignore")
-        # bpdb.set_trace()
-        experiment_results_gpt4o_mini = evaluate(
-            predict_rag_answer_openai_gpt4o_mini,
-            data=dataset_name,
-            evaluators=[answer_evaluator_improved],
-            experiment_prefix="rag-answer-accuracy-gpt4o-mini",
-            max_concurrency=EVAL_MAX_CONCURRENCY,
-            metadata={
-                "version": f"{DATASET_NAME}, gpt-4o-mini, {LLM_MODEL_NAME}",
-                "langchain_version": version("langchain"),
-                "langchain_community_version": version("langchain_community"),
-                "langchain_core_version": version("langchain_core"),
-                "langchain_openai_version": version("langchain_openai"),
-                "langchain_text_splitters_version": version("langchain_text_splitters"),
-                "langsmith_version": version("langsmith"),
-                "pydantic_version": version("pydantic"),
-                "pydantic_settings_version": version("pydantic_settings"),
-            },
-        )
-    with warnings.catch_warnings():
-        print_panel("rag-answer-accuracy-gpt4o")
-        warnings.simplefilter("ignore")
-        # bpdb.set_trace()
-        experiment_results_gpt4o = evaluate(
-            predict_rag_answer_openai_gpt4o,
-            data=dataset_name,
-            evaluators=[answer_evaluator_improved],
-            experiment_prefix="rag-answer-accuracy-gpt4o",
-            max_concurrency=EVAL_MAX_CONCURRENCY,
-            metadata={
-                "version": f"{DATASET_NAME}, gpt-4o, {LLM_MODEL_NAME}",
-                "langchain_version": version("langchain"),
-                "langchain_community_version": version("langchain_community"),
-                "langchain_core_version": version("langchain_core"),
-                "langchain_openai_version": version("langchain_openai"),
-                "langchain_text_splitters_version": version("langchain_text_splitters"),
-                "langsmith_version": version("langsmith"),
-                "pydantic_version": version("pydantic"),
-                "pydantic_settings_version": version("pydantic_settings"),
-            },
-        )
-    with warnings.catch_warnings():
-        print_panel("rag-answer-accuracy-gpt4-turbo")
-        warnings.simplefilter("ignore")
-        # bpdb.set_trace()
-        experiment_results_gpt4_turbo = evaluate(
-            predict_rag_answer_openai_gpt4_turbo,
-            data=dataset_name,
-            evaluators=[answer_evaluator_improved],
-            experiment_prefix="rag-answer-accuracy-gpt4-turbo",
-            max_concurrency=EVAL_MAX_CONCURRENCY,
-            metadata={
-                "version": f"{DATASET_NAME}, gpt-4-turbo, {LLM_MODEL_NAME}",
-                "langchain_version": version("langchain"),
-                "langchain_community_version": version("langchain_community"),
-                "langchain_core_version": version("langchain_core"),
-                "langchain_openai_version": version("langchain_openai"),
-                "langchain_text_splitters_version": version("langchain_text_splitters"),
-                "langsmith_version": version("langsmith"),
-                "pydantic_version": version("pydantic"),
-                "pydantic_settings_version": version("pydantic_settings"),
-            },
-        )
-    with warnings.catch_warnings():
-        print_panel("rag-answer-accuracy-gpt35-turbo")
-        warnings.simplefilter("ignore")
-        # bpdb.set_trace()
-        experiment_results_gpt35_turbo = evaluate(
-            predict_rag_answer_openai_gpt35_turbo,
-            data=dataset_name,
-            evaluators=[answer_evaluator_improved],
-            experiment_prefix="rag-answer-accuracy-gpt35-turbo",
-            max_concurrency=EVAL_MAX_CONCURRENCY,
-            metadata={
-                "version": f"{DATASET_NAME}, gpt-3.5-turbo, {LLM_MODEL_NAME}",
-                "langchain_version": version("langchain"),
-                "langchain_community_version": version("langchain_community"),
-                "langchain_core_version": version("langchain_core"),
-                "langchain_openai_version": version("langchain_openai"),
-                "langchain_text_splitters_version": version("langchain_text_splitters"),
-                "langsmith_version": version("langsmith"),
-                "pydantic_version": version("pydantic"),
-                "pydantic_settings_version": version("pydantic_settings"),
-            },
-        )
 
-
-        # experiment_results
-except Exception as ex:
-    rich.print(f"{ex}")
-    exc_type, exc_value, exc_traceback = sys.exc_info()
-    rich.print(f"Error Class: {ex.__class__}")
-    output = f"[UNEXPECTED] {type(ex).__name__}: {ex}"
-    rich.print(output)
-    rich.print(f"exc_type: {exc_type}")
-    rich.print(f"exc_value: {exc_value}")
-    traceback.print_tb(exc_traceback)
-    bpdb.pm()
+            # experiment_results
+    except Exception as ex:
+        rich.print(f"{ex}")
+        exc_type, exc_value, exc_traceback = sys.exc_info()
+        rich.print(f"Error Class: {ex.__class__}")
+        output = f"[UNEXPECTED] {type(ex).__name__}: {ex}"
+        rich.print(output)
+        rich.print(f"exc_type: {exc_type}")
+        rich.print(f"exc_value: {exc_value}")
+        traceback.print_tb(exc_traceback)
+        bpdb.pm()
 
 # -------------------------
 # Helpfulness Testing
@@ -1695,28 +1708,29 @@ helpfulness_labeled_criteria_evaluator = LangChainStringEvaluator(
     }
 )
 
-with warnings.catch_warnings():
-    warnings.simplefilter("ignore")
-    print_panel("rag-helpfulness-testing")
-    experiment_results = evaluate(
-        predict_rag_answer,
-        data=dataset_name,
-        evaluators=[helpfulness_labeled_criteria_evaluator],
-        experiment_prefix="rag-helpfulness-testing",
-        max_concurrency=EVAL_MAX_CONCURRENCY,
-        metadata={
-            "version": f"{DATASET_NAME}, {LLM_MODEL_NAME}",
-            "langchain_version": version("langchain"),
-            "langchain_community_version": version("langchain_community"),
-            "langchain_core_version": version("langchain_core"),
-            "langchain_openai_version": version("langchain_openai"),
-            "langchain_text_splitters_version": version("langchain_text_splitters"),
-            "langsmith_version": version("langsmith"),
-            "pydantic_version": version("pydantic"),
-            "pydantic_settings_version": version("pydantic_settings"),
-            "llm_run_config": LLM_RUN_CONFIG,
-        },
-    )
+if HELPFULNESS_FEATURE_FLAG:
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        print_panel("rag-helpfulness-testing")
+        experiment_results = evaluate(
+            predict_rag_answer,
+            data=dataset_name,
+            evaluators=[helpfulness_labeled_criteria_evaluator],
+            experiment_prefix="rag-helpfulness-testing",
+            max_concurrency=EVAL_MAX_CONCURRENCY,
+            metadata={
+                "version": f"{DATASET_NAME}, {LLM_MODEL_NAME}",
+                "langchain_version": version("langchain"),
+                "langchain_community_version": version("langchain_community"),
+                "langchain_core_version": version("langchain_core"),
+                "langchain_openai_version": version("langchain_openai"),
+                "langchain_text_splitters_version": version("langchain_text_splitters"),
+                "langsmith_version": version("langsmith"),
+                "pydantic_version": version("pydantic"),
+                "pydantic_settings_version": version("pydantic_settings"),
+                "llm_run_config": LLM_RUN_CONFIG,
+            },
+        )
 
 # -------------------------
 # Use string or embedding distance metrics
@@ -1737,29 +1751,29 @@ embedding_distance_evaluator = LangChainStringEvaluator(
       }
 )
 
-
-with warnings.catch_warnings():
-    warnings.simplefilter("ignore")
-    print_panel("rag-string-embedding-distance-metrics-testing")
-    experiment_results = evaluate(
-        predict_rag_answer,
-        data=dataset_name,
-        evaluators=[string_distance_evaluator, embedding_distance_evaluator],
-        experiment_prefix="rag-string-embedding-distance-metrics-testing",
-        max_concurrency=EVAL_MAX_CONCURRENCY,
-        metadata={
-            "version": f"{DATASET_NAME}, {LLM_MODEL_NAME}",
-            "langchain_version": version("langchain"),
-            "langchain_community_version": version("langchain_community"),
-            "langchain_core_version": version("langchain_core"),
-            "langchain_openai_version": version("langchain_openai"),
-            "langchain_text_splitters_version": version("langchain_text_splitters"),
-            "langsmith_version": version("langsmith"),
-            "pydantic_version": version("pydantic"),
-            "pydantic_settings_version": version("pydantic_settings"),
-            "llm_run_config": LLM_RUN_CONFIG,
-        },
-    )
+if RAG_STRING_EMBEDDING_DISTANCE_METRICS_FEATURE_FLAG:
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        print_panel("rag-string-embedding-distance-metrics-testing")
+        experiment_results = evaluate(
+            predict_rag_answer,
+            data=dataset_name,
+            evaluators=[string_distance_evaluator, embedding_distance_evaluator],
+            experiment_prefix="rag-string-embedding-distance-metrics-testing",
+            max_concurrency=EVAL_MAX_CONCURRENCY,
+            metadata={
+                "version": f"{DATASET_NAME}, {LLM_MODEL_NAME}",
+                "langchain_version": version("langchain"),
+                "langchain_community_version": version("langchain_community"),
+                "langchain_core_version": version("langchain_core"),
+                "langchain_openai_version": version("langchain_openai"),
+                "langchain_text_splitters_version": version("langchain_text_splitters"),
+                "langsmith_version": version("langsmith"),
+                "pydantic_version": version("pydantic"),
+                "pydantic_settings_version": version("pydantic_settings"),
+                "llm_run_config": LLM_RUN_CONFIG,
+            },
+        )
 # To measure the similarity between a predicted string and a reference, you can use string distance metrics:
 
 # The "string_distance" evaluator computes a normalized string edit distance between the prediction and reference
