@@ -458,6 +458,13 @@ def formatter_sensitive(record: dict[str, Any]) -> str:
     )
 
 
+# # Loguru doesn't export the Record type so this can't be properly typed
+# # Taken from the following issue:
+# # https://github.com/Delgan/loguru/issues/537#issuecomment-986259036
+# def format_and_obfuscate(record) -> str:  # type: ignore[no-untyped-def]
+#     record["extra"]["obfuscated_message"] = obfuscate_message(record["message"])
+#     return "[{level}] {extra[obfuscated_message]}\n{exception}"
+
 # # SMOKE-TESTS
 # if __name__ == "__main__":
 #     from logging_tree import printout
