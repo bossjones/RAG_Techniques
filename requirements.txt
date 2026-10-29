@@ -146,7 +146,7 @@ scikit-learn==1.5.1
 scipy==1.14.0
 sentence-transformers==3.0.1
 sentry-sdk==2.10.0
-setuptools==70.3.0
+setuptools==84.1.0
 shellingham==1.5.4
 six==1.16.0
 smart-open==7.0.4
