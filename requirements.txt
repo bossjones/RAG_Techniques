@@ -32,7 +32,7 @@ docx2txt==0.8
 execnet==2.1.1
 executing==2.0.1
 faiss-cpu==1.8.0.post1
-filelock==3.15.4
+filelock==4.2.1
 flake8==7.1.1
 frozenlist==1.4.1
 fsspec==2024.5.0
