@@ -6,7 +6,7 @@ appdirs==1.4.4
 asttokens==2.4.1
 attrs==23.2.0
 beautifulsoup4==4.12.3
-black==24.8.0
+black==26.10.1
 blis==0.7.11
 bpython==0.24
 catalogue==2.0.10
