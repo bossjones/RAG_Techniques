@@ -69,7 +69,7 @@ language_data==1.2.0
 llama-cloud==0.0.9
 llama-index-agent-openai==0.2.8
 llama-index-cli==0.1.12
-llama-index-core==0.10.55
+llama-index-core==0.13.0
 llama-index-embeddings-openai==0.1.10
 llama-index-indices-managed-llama-cloud==0.2.5
 llama-index-legacy==0.9.48
