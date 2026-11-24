@@ -64,7 +64,7 @@ langchain-openai==0.1.23
 langchain-text-splitters==0.2.2
 langchain==0.2.15
 langcodes==3.4.0
-langsmith==0.1.108
+langsmith==0.8.18
 language_data==1.2.0
 llama-cloud==0.0.9
 llama-index-agent-openai==0.2.8
